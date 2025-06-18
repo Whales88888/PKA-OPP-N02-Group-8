@@ -125,5 +125,15 @@ Viết hàm lấy danh sách phiếu mượn+ Viết hàm kiểm tra gần đế
 
 https://drive.google.com/drive/folders/1br1l1kf0BAGJCVGVEAaElXbE0fobXPOs?usp=sharing
 
+Practice 8 :
+## Chức năng chính
+Thông báo danh sách sách đã mượn bởi bạn đọc, gần đến ngày phải trả.
 
+## Phân công công việc
+- Nguyễn Thị Minh Hằng: Viết hàm lấy danh sách sách đã mượn bởi bạn đọc (Model, Service).
+- Bùi Văn Khoa: Viết hàm kiểm tra sách nào gần đến hạn trả (Service).
+- Đỗ Vân Khánh: Viết hàm tổng hợp, in ra danh sách cảnh báo cho bạn đọc (Controller, View).
+
+## Ảnh giao diện chức năng cảnh báo sách gần đến hạn trả
+![Giao diện cảnh báo sách gần đến hạn trả](screenshot-near-due.png)
 
