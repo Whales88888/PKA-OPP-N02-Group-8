@@ -9,7 +9,12 @@ import org.springframework.stereotype.Service;
 public class BorrowingSlipService {
     public List<BorrowingSlip> getSlipsByBorrowerID(List<BorrowingSlip> slips, String borrowerID) {
         return slips.stream()
-            .filter(slip -> slip.getBorrower().getBorrowerID().equals(borrowerID))
+            .filter(slip -> {
+            if (slip.getBorrower() != null && slip.getBorrower().getId() != null) {
+                return slip.getBorrower().getId().equals(borrowerID);
+            }
+            return false;
+            })
             .collect(Collectors.toList());
     }
 }
