@@ -1,3 +1,5 @@
+package library.test;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -89,10 +91,11 @@ public class TestBookManager {
         } catch (Exception e) {
             System.out.println("Lỗi khi lọc sách theo tác giả: " + e.getMessage());
         } finally {
-            if (scanner != null) {
-                scanner.close();
-                System.out.println("Đã đóng scanner.");
-            }
+            // Không đóng scanner khi dùng với System.in
+            // if (scanner != null) {
+            //     scanner.close();
+            //     System.out.println("Đã đóng scanner.");
+            // }
         }
     }
 
@@ -111,4 +114,4 @@ public class TestBookManager {
             System.out.println("Chương trình kết thúc.");
         }
     }
-} 
+}

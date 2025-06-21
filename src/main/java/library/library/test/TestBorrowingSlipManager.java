@@ -1,3 +1,5 @@
+package library.test;
+
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -118,7 +120,7 @@ public class TestBorrowingSlipManager {
             for (BorrowingSlip s : crud.getAll()) {
                 System.out.println(s);
             }
-            scanner.close();
+            // Không đóng scanner khi dùng với System.in
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
