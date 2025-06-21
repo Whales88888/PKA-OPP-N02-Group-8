@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head><title>Danh sách Bạn đọc</title></head>
+<body>
+<h1>Danh sách Bạn đọc</h1>
+<ul>
+    <th:block th:each="borrower : ${borrowers}">
+        <li th:text="${borrower.name}"></li>
+    </th:block>
+</ul>
+<form action="/borrowers/add" method="post">
+    <input name="name" placeholder="Tên bạn đọc"/>
+    <button type="submit">Thêm bạn đọc</button>
+</form>
+</body>
+</html>

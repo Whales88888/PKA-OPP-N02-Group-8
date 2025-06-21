@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head><title>Danh sách Sách</title></head>
+<body>
+<h1>Danh sách Sách</h1>
+<ul>
+    <th:block th:each="book : ${books}">
+        <li th:text="${book.title} + ' - ' + ${book.author}"></li>
+    </th:block>
+</ul>
+<form action="/books/add" method="post">
+    <input name="title" placeholder="Tên sách"/>
+    <input name="author" placeholder="Tác giả"/>
+    <button type="submit">Thêm sách</button>
+</form>
+</body>
+</html>

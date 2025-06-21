@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head><title>Phiếu mượn gần đến hạn</title></head>
+<body>
+<h1>Phiếu mượn gần đến hạn</h1>
+<ul>
+    <th:block th:each="slip : ${borrowingslips}">
+        <li>
+            <span th:text="${slip.book.title}"></span> -
+            <span th:text="${slip.borrower.name}"></span> -
+            <span th:text="${slip.dueDate}"></span>
+        </li>
+    </th:block>
+</ul>
+</body>
+</html>

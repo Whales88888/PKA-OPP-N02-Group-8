@@ -1,20 +1,42 @@
 package com.example.library.service;
 
 import com.example.library.model.BorrowingSlip;
-import java.util.List;
-import java.util.stream.Collectors;
+import com.example.library.model.Borrower;
+import com.example.library.repository.BorrowingSlipRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import java.time.LocalDate;
+import java.util.List;
 
 @Service
 public class BorrowingSlipService {
-    public List<BorrowingSlip> getSlipsByBorrowerID(List<BorrowingSlip> slips, String borrowerID) {
-        return slips.stream()
-            .filter(slip -> {
-            if (slip.getBorrower() != null && slip.getBorrower().getId() != null) {
-                return slip.getBorrower().getId().equals(borrowerID);
-            }
-            return false;
-            })
-            .collect(Collectors.toList());
+    @Autowired
+    private BorrowingSlipRepository borrowingSlipRepository;
+
+    public List<BorrowingSlip> getBorrowingSlipsByBorrower(Borrower borrower) {
+        try {
+            return borrowingSlipRepository.findByBorrower(borrower);
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi khi lấy phiếu mượn", e);
+        } finally {
+        }
+    }
+
+    public List<BorrowingSlip> getSlipsNearDueDate(LocalDate from, LocalDate to) {
+        try {
+            return borrowingSlipRepository.findByDueDateBetween(from, to);
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi khi lấy phiếu mượn gần đến hạn", e);
+        } finally {
+        }
+    }
+
+    public BorrowingSlip addBorrowingSlip(BorrowingSlip slip) {
+        try {
+            return borrowingSlipRepository.save(slip);
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi khi thêm phiếu mượn", e);
+        } finally {
+        }
     }
 }
