@@ -167,6 +167,22 @@ export default function Borrowing() {
     setBorrowForm(prev => ({ ...prev, dueDate: calculateDueDate(prev.borrowDate) }));
   }
 
+  // Utility to check if a borrowing is overdue (not returned and dueDate < now)
+  function isBorrowingOverdue(borrowing: BorrowingWithDetails) {
+    if (borrowing.returnDate) return false;
+    return new Date(borrowing.dueDate) < new Date();
+  }
+
+  // Utility to calculate overdue days (only if not returned)
+  function getOverdueDays(borrowing: BorrowingWithDetails) {
+    if (borrowing.returnDate) return 0;
+    const due = new Date(borrowing.dueDate);
+    const now = new Date();
+    if (isNaN(due.getTime())) return 0;
+    if (now <= due) return 0;
+    return Math.ceil((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
   return (
     <div className="space-y-6">
       <Tabs defaultValue="borrow" className="w-full">
@@ -331,7 +347,7 @@ export default function Borrowing() {
                         {activeBooksForReturn.map((borrowing) => (
                           <SelectItem key={borrowing.id} value={borrowing.id.toString()}>
                             {borrowing.bookTitle} - {borrowing.readerName}
-                            {isOverdue(borrowing.dueDate) && " (QUÁ HẠN)"}
+                            {isBorrowingOverdue(borrowing) && " (QUÁ HẠN)"}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -358,13 +374,13 @@ export default function Borrowing() {
                             </div>
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-600">Ngày mượn:</span>
-                              <span className="font-medium">{formatDate(selectedBorrowing.borrowDate)}</span>
+                              <span className="font-medium">{selectedBorrowing.borrowDate ? formatDate(selectedBorrowing.borrowDate) : '-'}</span>
                             </div>
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-600">Hạn trả:</span>
-                              <span className={`font-medium ${isOverdue(selectedBorrowing.dueDate) ? 'text-red-600' : ''}`}>
-                                {formatDate(selectedBorrowing.dueDate)}
-                                {isOverdue(selectedBorrowing.dueDate) && " (QUÁ HẠN)"}
+                              <span className={`font-medium ${isBorrowingOverdue(selectedBorrowing) ? 'text-red-600' : ''}`}>
+                                {selectedBorrowing.dueDate ? formatDate(selectedBorrowing.dueDate) : '-'}
+                                {isBorrowingOverdue(selectedBorrowing) && " (QUÁ HẠN)"}
                               </span>
                             </div>
                           </>
@@ -415,10 +431,10 @@ export default function Borrowing() {
                       <div className="text-xs text-slate-600">{borrowing.readerName}</div>
                       <div className="flex justify-between items-center mt-2">
                         <span className="text-xs text-slate-500">
-                          Hạn: {formatDate(borrowing.dueDate)}
+                          Hạn: {borrowing.dueDate ? formatDate(borrowing.dueDate) : '-'}
                         </span>
-                        <Badge className={getStatusColor(isOverdue(borrowing.dueDate) ? "overdue" : "borrowed")}>
-                          {isOverdue(borrowing.dueDate) ? "Quá hạn" : `Còn ${calculateDaysUntilDue(borrowing.dueDate)} ngày`}
+                        <Badge className={getStatusColor(isBorrowingOverdue(borrowing) ? "overdue" : "borrowed")}>
+                          {isBorrowingOverdue(borrowing) ? "Quá hạn" : `Còn ${calculateDaysUntilDue(borrowing.dueDate)} ngày`}
                         </Badge>
                       </div>
                     </div>
@@ -466,25 +482,28 @@ export default function Borrowing() {
                             <div>{borrowing.readerName}</div>
                             <div className="text-sm text-slate-500">{borrowing.readerEmail}</div>
                           </td>
-                          <td className="py-3 px-4">{formatDate(borrowing.borrowDate)}</td>
-                          <td className="py-3 px-4 text-red-600">{formatDate(borrowing.dueDate)}</td>
+                          <td className="py-3 px-4">{borrowing.borrowDate ? formatDate(borrowing.borrowDate) : '-'}</td>
+                          <td className="py-3 px-4 text-red-600">{borrowing.dueDate ? formatDate(borrowing.dueDate) : '-'}</td>
                           <td className="py-3 px-4">
                             <Badge className="status-overdue">
-                              {Math.abs(calculateDaysUntilDue(borrowing.dueDate))} ngày
+                              {getOverdueDays(borrowing)} ngày
                             </Badge>
                           </td>
                           <td className="py-3 px-4">
-                            <Button
-                              size="sm"
-                              className="btn-success"
-                              onClick={() => {
-                                setReturnForm(prev => ({ ...prev, borrowingId: borrowing.id.toString() }));
-                                // You could also automatically switch to the return tab
-                              }}
-                            >
-                              <Undo className="w-3 h-3 mr-1" />
-                              Trả sách
-                            </Button>
+                            {borrowing.returnDate ? (
+                              <Button size="sm" className="btn-disabled" disabled>Đã trả</Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                className="btn-success"
+                                onClick={() => {
+                                  setReturnForm(prev => ({ ...prev, borrowingId: borrowing.id.toString() }));
+                                }}
+                              >
+                                <Undo className="w-3 h-3 mr-1" />
+                                Trả sách
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -544,11 +563,9 @@ export default function Borrowing() {
                             <div>{borrowing.readerName}</div>
                             <div className="text-sm text-slate-500">{borrowing.readerEmail}</div>
                           </td>
-                          <td className="py-3 px-4">{formatDate(borrowing.borrowDate)}</td>
-                          <td className="py-3 px-4">{formatDate(borrowing.dueDate)}</td>
-                          <td className="py-3 px-4">
-                            {borrowing.returnDate ? formatDate(borrowing.returnDate) : "-"}
-                          </td>
+                          <td className="py-3 px-4">{borrowing.borrowDate ? formatDate(borrowing.borrowDate) : '-'}</td>
+                          <td className="py-3 px-4">{borrowing.dueDate ? formatDate(borrowing.dueDate) : '-'}</td>
+                          <td className="py-3 px-4">{borrowing.returnDate ? formatDate(borrowing.returnDate) : '-'}</td>
                           <td className="py-3 px-4">
                             <Badge className={getStatusColor(borrowing.status)}>
                               {getStatusText(borrowing.status)}
