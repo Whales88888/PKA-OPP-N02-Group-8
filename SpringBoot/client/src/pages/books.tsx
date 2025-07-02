@@ -22,11 +22,11 @@ export default function Books() {
   const { toast } = useToast();
 
   const { data: books, isLoading } = useQuery<Book[]>({
-    queryKey: ["/api/books", { search: searchQuery, category: selectedCategory }],
+    queryKey: ["/api/books", { search: searchQuery, category: selectedCategory === "all" ? "" : selectedCategory }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery) params.append("search", searchQuery);
-      if (selectedCategory) params.append("category", selectedCategory);
+      if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
       
       const response = await fetch(`/api/books?${params.toString()}`);
       if (!response.ok) throw new Error("Failed to fetch books");
@@ -108,7 +108,7 @@ export default function Books() {
                   <SelectValue placeholder="Tất cả thể loại" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Tất cả thể loại</SelectItem>
+                  <SelectItem value="all">Tất cả thể loại</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category.value} value={category.value}>
                       {category.label}
@@ -215,7 +215,7 @@ export default function Books() {
                             variant="link" 
                             onClick={() => {
                               setSearchQuery("");
-                              setSelectedCategory("");
+                              setSelectedCategory("all");
                             }}
                           >
                             Xóa bộ lọc
