@@ -37,4 +37,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     // Thông báo gần đây
     @Query("SELECT n FROM Notification n ORDER BY n.createdAt DESC")
     List<Notification> findRecentNotifications(Pageable pageable);
+
+    List<Notification> findByIsReadFalse();
 }

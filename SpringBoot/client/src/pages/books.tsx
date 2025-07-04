@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,17 @@ import BookModal from "@/components/modals/book-modal";
 import { getCategoryColor, getCategoryText, getStatusColor, getStatusText } from "@/lib/utils";
 import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
 import type { Book } from "@shared/schema";
+import { API_BASE } from "@/config/api";
+
+// Map backend fields to frontend camelCase
+function mapBookApi(book: any): Book {
+  return {
+    ...book,
+    availableQuantity: book.availableQuantity ?? book.available_quantity,
+    publishYear: book.publishYear ?? book.publication_year,
+    // add more mappings as needed
+  };
+}
 
 export default function Books() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -21,36 +32,69 @@ export default function Books() {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const { toast } = useToast();
 
-  const { data: books, isLoading } = useQuery<Book[]>({
-    queryKey: ["/api/books", { search: searchQuery, category: selectedCategory === "all" ? "" : selectedCategory }],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (searchQuery) params.append("search", searchQuery);
-      if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
-      
-      const response = await fetch(`/api/books?${params.toString()}`);
-      if (!response.ok) throw new Error("Failed to fetch books");
-      return response.json();
+  const { data, error, isLoading } = useQuery({
+    queryKey: ['books', { category: selectedCategory, search: searchQuery }],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/books${selectedCategory || searchQuery ? `/search?category=${selectedCategory}&title=${encodeURIComponent(searchQuery)}` : ''}`)
+        .then(r => {
+          if (!r.ok) throw new Error('Failed to load books');
+          return r.json();
+        })
+        .catch(console.error)
+  });
+
+  const addBookMutation = useMutation({
+    mutationFn: async (book: Partial<Book>) => {
+      return fetch(`${API_BASE}/api/books`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(book),
+      })
+        .then(res => res.json())
+        .catch(console.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["books"] });
+      setIsModalOpen(false);
+      toast({ title: "Success", description: "Book added successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to add book", variant: "destructive" });
+    },
+  });
+
+  const editBookMutation = useMutation({
+    mutationFn: async (book: Book) => {
+      return fetch(`${API_BASE}/api/books/${book.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(book),
+      })
+        .then(res => res.json())
+        .catch(console.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["books"] });
+      setIsModalOpen(false);
+      toast({ title: "Success", description: "Book updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update book", variant: "destructive" });
     },
   });
 
   const deleteBookMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/books/${id}`);
+      return fetch(`${API_BASE}/api/books/${id}`, { method: "DELETE" })
+        .then(res => res.json())
+        .catch(console.error);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
-      toast({
-        title: "Thành công",
-        description: "Đã xóa sách thành công",
-      });
+      queryClient.invalidateQueries({ queryKey: ["books"] });
+      toast({ title: "Success", description: "Book deleted successfully" });
     },
     onError: () => {
-      toast({
-        title: "Lỗi",
-        description: "Không thể xóa sách",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to delete book", variant: "destructive" });
     },
   });
 
@@ -77,6 +121,29 @@ export default function Books() {
     { value: "history", label: "Lịch sử" },
     { value: "business", label: "Kinh doanh" },
   ];
+
+  // Always use an array for rendering, whether API returns array or Page object
+  const booksArray = (Array.isArray(data) ? data : data?.content || []).map(mapBookApi);
+  const safeBooksArray = Array.isArray(booksArray) ? booksArray : [];
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-4 bg-slate-200 rounded w-24 mb-2"></div>
+                <div className="h-8 bg-slate-200 rounded w-16 mb-4"></div>
+                <div className="h-4 bg-slate-200 rounded w-32"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (error) return <div className="p-4 bg-red-100 text-red-700 rounded mb-4">Lỗi: {error.message}</div>;
 
   return (
     <div className="space-y-6">
@@ -125,6 +192,13 @@ export default function Books() {
 
         {/* Books Table */}
         <CardContent className="p-0">
+          {!isLoading && safeBooksArray.length === 0 && (
+            <tr>
+              <td colSpan={7} className="py-12 text-center text-slate-500">
+                Không có sách nào trong thư viện
+              </td>
+            </tr>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
@@ -149,8 +223,8 @@ export default function Books() {
                       ))}
                     </tr>
                   ))
-                ) : books && books.length > 0 ? (
-                  books.map((book) => (
+                ) : safeBooksArray.length > 0 ? (
+                  safeBooksArray.map((book: Book) => (
                     <tr key={book.id} className="table-hover">
                       <td className="py-4 px-6 text-slate-800">BK{book.id.toString().padStart(3, '0')}</td>
                       <td className="py-4 px-6">
@@ -240,10 +314,10 @@ export default function Books() {
           </div>
 
           {/* Pagination */}
-          {books && books.length > 0 && (
+          {safeBooksArray.length > 0 && (
             <div className="p-6 border-t border-slate-200 flex items-center justify-between">
               <div className="text-sm text-slate-600">
-                Hiển thị {books.length} kết quả
+                Hiển thị {safeBooksArray.length} kết quả
               </div>
               <div className="flex space-x-2">
                 <Button variant="outline" size="sm" disabled>
@@ -269,7 +343,7 @@ export default function Books() {
         }}
         book={selectedBook}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+          queryClient.invalidateQueries({ queryKey: ["books"] });
         }}
       />
     </div>

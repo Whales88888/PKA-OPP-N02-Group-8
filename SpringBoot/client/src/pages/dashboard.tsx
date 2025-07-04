@@ -14,17 +14,31 @@ import {
   UserPlus
 } from "lucide-react";
 import type { DashboardStats } from "@shared/schema";
+import { API_BASE } from "@/config/api";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
 
-  const { data: stats, isLoading } = useQuery<DashboardStats>({
-    queryKey: ["/api/stats"],
+  const { data: stats, error, isLoading } = useQuery({
+    queryKey: ['stats'],
+    queryFn: () =>
+      fetch(`${API_BASE}/dashboard/api/dashboard/stats`).then(r => {
+        if (!r.ok) throw new Error('Failed to load stats');
+        return r.json();
+      }).catch(console.error)
   });
 
   const { data: recentBorrowings } = useQuery({
-    queryKey: ["/api/borrowings"],
+    queryKey: ["recent-activities"],
+    queryFn: () =>
+      fetch(`${API_BASE}/dashboard/api/dashboard/recent-activities`).then(r => {
+        if (!r.ok) throw new Error('Failed to load recent activities');
+        return r.json();
+      }).catch(console.error)
   });
+
+  // Always use an array for rendering recent activities
+  const recentBorrowingsArray = Array.isArray(recentBorrowings?.recentBorrowings) ? recentBorrowings.recentBorrowings : [];
 
   if (isLoading) {
     return (
@@ -44,34 +58,36 @@ export default function Dashboard() {
     );
   }
 
+  if (error) return <div className="p-4 bg-red-100 text-red-700 rounded mb-4">Lỗi: {error.message}</div>;
+
   const statsCards = [
     {
       title: "Tổng số Sách",
-      value: stats?.books.totalBooks || 0,
+      value: stats?.totalBooks || 0,
       icon: <Book className="w-6 h-6 text-blue-600" />,
       bgColor: "bg-blue-100",
-      change: "+12%",
+      change: "+25%",
       changeType: "positive" as const,
     },
     {
       title: "Độc giả hoạt động",
-      value: stats?.readers.activeReaders || 0,
+      value: stats?.activeReaders || 0,
       icon: <Users className="w-6 h-6 text-green-600" />,
       bgColor: "bg-green-100",
-      change: "+8%",
+      change: "+25%",
       changeType: "positive" as const,
     },
     {
       title: "Sách đang mượn",
-      value: stats?.borrowings.currentBorrowings || 0,
+      value: stats?.currentBorrowings || 0,
       icon: <ArrowRightLeft className="w-6 h-6 text-yellow-600" />,
       bgColor: "bg-yellow-100",
-      change: "-3%",
+      change: "-10%",
       changeType: "negative" as const,
     },
     {
       title: "Sách quá hạn",
-      value: stats?.borrowings.overdueBooks || 0,
+      value: stats?.overdueBorrowings || 0,
       icon: <AlertTriangle className="w-6 h-6 text-red-600" />,
       bgColor: "bg-red-100",
       change: "Cần xử lý",
@@ -124,23 +140,25 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recentBorrowings?.slice(0, 5).map((borrowing: any, index: number) => (
-                  <div key={index} className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Book className="w-4 h-4 text-green-600" />
+                {recentBorrowingsArray.length > 0 ? (
+                  recentBorrowingsArray.slice(0, 5).map((borrowing: any, index: number) => (
+                    <div key={index} className="flex items-start space-x-4">
+                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Book className="w-4 h-4 text-green-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-800">
+                          <span className="font-medium">{borrowing.readerName}</span>
+                          {borrowing.returnDate ? " đã trả sách " : " đã mượn sách "}
+                          <span className="font-medium">"{borrowing.bookTitle}"</span>
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {new Date(borrowing.createdAt).toLocaleString("vi-VN")}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-800">
-                        <span className="font-medium">{borrowing.readerName}</span>
-                        {borrowing.returnDate ? " đã trả sách " : " đã mượn sách "}
-                        <span className="font-medium">"{borrowing.bookTitle}"</span>
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {new Date(borrowing.createdAt).toLocaleString("vi-VN")}
-                      </p>
-                    </div>
-                  </div>
-                )) || (
+                  ))
+                ) : (
                   <div className="text-center py-8 text-slate-500">
                     Chưa có hoạt động nào
                   </div>
@@ -196,7 +214,7 @@ export default function Dashboard() {
       </div>
 
       {/* Overdue Books Alert */}
-      {stats && stats.borrowings.overdueBooks > 0 && (
+      {stats && stats.overdueBorrowings > 0 && (
         <Card className="border-red-200 bg-red-50">
           <CardContent className="p-6">
             <div className="flex items-start space-x-4">
@@ -208,7 +226,7 @@ export default function Dashboard() {
                   Sách sắp đến hạn trả
                 </h4>
                 <p className="text-red-700 mb-4">
-                  Có {stats.borrowings.overdueBooks} cuốn sách đã quá hạn trả. 
+                  Có {stats.overdueBorrowings} cuốn sách đã quá hạn trả. 
                   Hãy thông báo cho độc giả để trả sách.
                 </p>
                 <Button 

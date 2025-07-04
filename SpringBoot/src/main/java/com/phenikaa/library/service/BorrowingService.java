@@ -242,4 +242,7 @@ public class BorrowingService {
             notificationService.createDueSoonNotification(borrowing);
         }
     }
+    
+    public ReaderService getReaderService() { return readerService; }
+    public BookService getBookService() { return bookService; }
 }

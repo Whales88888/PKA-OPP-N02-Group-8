@@ -83,4 +83,15 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     
     // Sách theo vị trí kệ
     List<Book> findByShelfLocationContainingIgnoreCase(String shelfLocation);
+
+    @Query("SELECT b FROM Book b WHERE " +
+           "(:title IS NULL OR :title = '' OR LOWER(b.title) LIKE LOWER(CONCAT('%', :title, '%'))) AND " +
+           "(:author IS NULL OR :author = '' OR LOWER(b.author) LIKE LOWER(CONCAT('%', :author, '%'))) AND " +
+           "(:category IS NULL OR :category = '' OR LOWER(b.category) LIKE LOWER(CONCAT('%', :category, '%'))) AND " +
+           "(:isbn IS NULL OR :isbn = '' OR LOWER(b.isbn) LIKE LOWER(CONCAT('%', :isbn, '%')))")
+    Page<Book> searchBooks(@Param("title") String title,
+                          @Param("author") String author,
+                          @Param("category") String category,
+                          @Param("isbn") String isbn,
+                          Pageable pageable);
 }

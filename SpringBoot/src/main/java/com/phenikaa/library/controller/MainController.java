@@ -12,12 +12,14 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Controller
+@RequestMapping("/app")
 public class MainController {
     
     @Autowired
@@ -33,8 +35,8 @@ public class MainController {
     private NotificationService notificationService;
     
     // Trang chủ - Dashboard
-    @GetMapping("/")
-    public String dashboard(Model model) {
+    @GetMapping("")
+    public String dashboardPage(Model model) {
         // Thống kê tổng quan
         model.addAttribute("totalBooks", bookService.getTotalBooksCount());
         model.addAttribute("availableBooks", bookService.getAvailableBooksCount());
@@ -55,7 +57,7 @@ public class MainController {
         model.addAttribute("recentActivities", getRecentActivities());
         model.addAttribute("notifications", notificationService.getUnreadNotifications());
         
-        return "dashboard/index";
+        return "app/dashboard/index";
     }
     
     // Trang tìm kiếm nâng cao
@@ -74,7 +76,7 @@ public class MainController {
         
         model.addAttribute("searchQuery", q);
         model.addAttribute("searchType", type);
-        return "search/advanced";
+        return "app/search/advanced";
     }
     
     // Trang báo cáo thống kê
@@ -83,14 +85,14 @@ public class MainController {
         model.addAttribute("bookStats", getBookStatistics());
         model.addAttribute("readerStats", getReaderStatistics());
         model.addAttribute("borrowingStats", getBorrowingStatistics());
-        return "reports/index";
+        return "app/reports/index";
     }
     
     // Trang thông báo
     @GetMapping("/notifications")
     public String notifications(Model model) {
         model.addAttribute("notifications", notificationService.getAllNotifications());
-        return "notifications/list";
+        return "app/notifications/list";
     }
     
     // Trang thông tin thủ thư
@@ -98,19 +100,19 @@ public class MainController {
     public String librarianInfo(Model model) {
         // Thông tin thủ thư hiện tại (có thể lấy từ session hoặc database)
         model.addAttribute("librarian", getCurrentLibrarian());
-        return "librarian/info";
+        return "app/librarian/info";
     }
     
     // Trang cài đặt
     @GetMapping("/settings")
-    public String settings(Model model) {
-        return "settings/index";
+    public String settingsPage(Model model) {
+        return "app/settings/index";
     }
     
     // Trang 404
     @GetMapping("/not-found")
     public String notFound() {
-        return "not-found";
+        return "app/not-found";
     }
     
     // Helper methods

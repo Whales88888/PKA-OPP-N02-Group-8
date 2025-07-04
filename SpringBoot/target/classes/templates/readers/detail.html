@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head}">
+    <title>Chi tiết độc giả - Hệ thống quản lý thư viện</title>
+</head>
+<body>
+    <div th:replace="~{layout/base :: body}">
+        <div th:fragment="content">
+            <h2>Chi tiết độc giả</h2>
+            <table class="table">
+                <tr>
+                    <th>Họ tên</th>
+                    <td th:text="${reader.name}"></td>
+                </tr>
+                <tr>
+                    <th>Email</th>
+                    <td th:text="${reader.email}"></td>
+                </tr>
+                <tr>
+                    <th>Số điện thoại</th>
+                    <td th:text="${reader.phone}"></td>
+                </tr>
+                <tr>
+                    <th>Địa chỉ</th>
+                    <td th:text="${reader.address}"></td>
+                </tr>
+            </table>
+            <a th:href="@{/readers}" class="btn btn-secondary">Quay lại</a>
+        </div>
+    </div>
+</body>
+</html>

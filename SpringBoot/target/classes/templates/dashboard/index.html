@@ -1,412 +1,293 @@
 <!DOCTYPE html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{layout/base :: head}">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/base :: html(~{::title}, ~{::content})}">
+<head>
     <title>Dashboard - Hệ thống quản lý thư viện</title>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <div th:replace="~{layout/base :: body}">
-        <div th:fragment="content">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2><i class="bi bi-speedometer2 me-2"></i>Dashboard</h2>
-                <div class="btn-group" role="group">
-                    <button class="btn btn-outline-primary" onclick="refreshDashboard()">
-                        <i class="bi bi-arrow-clockwise me-2"></i>Làm mới
-                    </button>
-                    <a href="/reports" class="btn btn-outline-secondary">
-                        <i class="bi bi-file-earmark-text me-2"></i>Báo cáo chi tiết
-                    </a>
-                </div>
+    <div th:fragment="content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">Dashboard</h1>
+            <div class="text-muted">
+                <i class="bi bi-calendar3"></i>
+                <span th:text="${#temporals.format(#temporals.createNow(), 'dd/MM/yyyy HH:mm')}">28/06/2025 16:30</span>
             </div>
+        </div>
 
-            <!-- Statistics Cards -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="card stats-card books">
-                        <div class="card-body text-center">
-                            <i class="bi bi-book fs-1"></i>
-                            <h3 th:text="${totalBooks}">0</h3>
-                            <p class="mb-0">Tổng số sách</p>
-                            <small class="text-white-50" th:text="${availableBooks} + ' có sẵn'">0 có sẵn</small>
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card stats-card books">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="text-white-50 small">Tổng số sách</div>
+                                <div class="h2 mb-0 text-white" th:text="${stats.books.totalBooks ?: 0}">150</div>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-book fs-1 text-white-50"></i>
+                            </div>
                         </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card stats-card readers">
-                        <div class="card-body text-center">
-                            <i class="bi bi-people fs-1"></i>
-                            <h3 th:text="${totalReaders}">0</h3>
-                            <p class="mb-0">Độc giả</p>
-                            <small class="text-white-50" th:text="${activeReaders} + ' đang hoạt động'">0 đang hoạt động</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card stats-card borrowings">
-                        <div class="card-body text-center">
-                            <i class="bi bi-arrow-left-right fs-1"></i>
-                            <h3 th:text="${totalBorrowings}">0</h3>
-                            <p class="mb-0">Lượt mượn</p>
-                            <small class="text-white-50" th:text="${activeBorrowings} + ' đang mượn'">0 đang mượn</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card stats-card">
-                        <div class="card-body text-center">
-                            <i class="bi bi-exclamation-triangle fs-1"></i>
-                            <h3 th:text="${overdueBorrowings}">0</h3>
-                            <p class="mb-0">Quá hạn</p>
-                            <small class="text-white-50">Cần xử lý</small>
+                        <div class="mt-2">
+                            <small class="text-white-50">
+                                <span th:text="${stats.books.availableBooks ?: 0}">120</span> có sẵn
+                            </small>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="row">
-                <!-- Charts -->
-                <div class="col-md-8">
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">
-                                <i class="bi bi-graph-up me-2"></i>Thống kê mượn sách theo tháng
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="borrowingChart" width="400" height="200"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="card mb-4">
-                                <div class="card-header">
-                                    <h5 class="card-title mb-0">
-                                        <i class="bi bi-pie-chart me-2"></i>Phân bố thể loại sách
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <canvas id="categoryChart" width="200" height="200"></canvas>
-                                </div>
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card stats-card readers">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="text-white-50 small">Độc giả</div>
+                                <div class="h2 mb-0 text-white" th:text="${stats.readers.totalReaders ?: 0}">85</div>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-people fs-1 text-white-50"></i>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="card mb-4">
-                                <div class="card-header">
-                                    <h5 class="card-title mb-0">
-                                        <i class="bi bi-bar-chart me-2"></i>Sách được mượn nhiều nhất
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <canvas id="popularBooksChart" width="200" height="200"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Recent Activities -->
-                <div class="col-md-4">
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">
-                                <i class="bi bi-clock-history me-2"></i>Hoạt động gần đây
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="timeline">
-                                <div th:each="activity : ${recentActivities}" class="timeline-item">
-                                    <div class="timeline-marker" th:classappend="${activity.type == 'BORROW' ? 'bg-success' : activity.type == 'RETURN' ? 'bg-info' : 'bg-warning'}"></div>
-                                    <div class="timeline-content">
-                                        <h6 class="timeline-title" th:text="${activity.title}">Hoạt động</h6>
-                                        <p class="timeline-text" th:text="${activity.description}">Mô tả</p>
-                                        <small class="text-muted" th:text="${#temporals.format(activity.timestamp, 'dd/MM/yyyy HH:mm')}">Thời gian</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Actions -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">
-                                <i class="bi bi-lightning me-2"></i>Thao tác nhanh
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="d-grid gap-2">
-                                <a href="/books/new" class="btn btn-primary">
-                                    <i class="bi bi-plus-circle me-2"></i>Thêm sách mới
-                                </a>
-                                <a href="/readers/new" class="btn btn-success">
-                                    <i class="bi bi-person-plus me-2"></i>Thêm độc giả
-                                </a>
-                                <a href="/borrowings/new" class="btn btn-info">
-                                    <i class="bi bi-arrow-down-circle me-2"></i>Cho mượn sách
-                                </a>
-                                <a href="/borrowings?status=OVERDUE" class="btn btn-warning">
-                                    <i class="bi bi-exclamation-triangle me-2"></i>Xem sách quá hạn
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Notifications -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">
-                                <i class="bi bi-bell me-2"></i>Thông báo
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div th:if="${notifications.empty}" class="text-center text-muted">
-                                <i class="bi bi-check-circle fs-1"></i>
-                                <p class="mt-2">Không có thông báo mới</p>
-                            </div>
-                            <div th:each="notification : ${notifications}" class="notification-item">
-                                <div class="d-flex align-items-start">
-                                    <div class="notification-icon me-2" 
-                                         th:classappend="${notification.priority == 'HIGH' ? 'text-danger' : notification.priority == 'MEDIUM' ? 'text-warning' : 'text-info'}">
-                                        <i class="bi bi-exclamation-circle"></i>
-                                    </div>
-                                    <div class="flex-grow-1">
-                                        <h6 class="mb-1" th:text="${notification.title}">Tiêu đề</h6>
-                                        <p class="mb-1 small" th:text="${notification.message}">Nội dung</p>
-                                        <small class="text-muted" th:text="${#temporals.format(notification.createdAt, 'dd/MM/yyyy HH:mm')}">Thời gian</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div th:if="${!notifications.empty}" class="text-center mt-3">
-                                <a href="/notifications" class="btn btn-sm btn-outline-primary">Xem tất cả</a>
-                            </div>
+                        <div class="mt-2">
+                            <small class="text-white-50">
+                                <span th:text="${stats.readers.activeReaders ?: 0}">78</span> đang hoạt động
+                            </small>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Recent Data Tables -->
-            <div class="row mt-4">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">
-                                <i class="bi bi-book me-2"></i>Sách mới thêm
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Tiêu đề</th>
-                                            <th>Tác giả</th>
-                                            <th>Thể loại</th>
-                                            <th>Ngày thêm</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr th:each="book : ${recentBooks}">
-                                            <td>
-                                                <a th:href="@{/books/{id}(id=${book.id})}" th:text="${book.title}">Tiêu đề</a>
-                                            </td>
-                                            <td th:text="${book.author}">Tác giả</td>
-                                            <td><span class="badge bg-info" th:text="${book.category}">Thể loại</span></td>
-                                            <td th:text="${#temporals.format(book.createdAt, 'dd/MM/yyyy')}">Ngày</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card stats-card borrowings">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="text-white-50 small">Đang mượn</div>
+                                <div class="h2 mb-0 text-white" th:text="${stats.borrowings.currentBorrowings ?: 0}">42</div>
                             </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-arrow-left-right fs-1 text-white-50"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-white-50">
+                                <span th:text="${stats.borrowings.overdueBorrowings ?: 0}" class="text-warning">3</span> quá hạn
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card stats-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="text-white-50 small">Tổng giao dịch</div>
+                                <div class="h2 mb-0 text-white" th:text="${stats.borrowings.totalBorrowings ?: 0}">328</div>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-graph-up fs-1 text-white-50"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-white-50">
+                                <span th:text="${stats.borrowings.returnedBorrowings ?: 0}">286</span> đã trả
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Recent Activities -->
+            <div class="col-xl-8 mb-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Hoạt động gần đây</h5>
+                        <a th:href="@{/borrowings}" class="btn btn-link btn-sm">Xem tất cả</a>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Thời gian</th>
+                                        <th>Hoạt động</th>
+                                        <th>Sách</th>
+                                        <th>Độc giả</th>
+                                        <th>Trạng thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="borrowing : ${recentBorrowings}" th:if="${recentBorrowings != null}">
+                                        <td>
+                                            <small th:text="${#temporals.format(borrowing.createdAt, 'dd/MM HH:mm')}">28/06 14:30</small>
+                                        </td>
+                                        <td>
+                                            <span th:if="${borrowing.status.name() == 'BORROWED'}" class="badge bg-primary">Mượn sách</span>
+                                            <span th:if="${borrowing.status.name() == 'RETURNED'}" class="badge bg-success">Trả sách</span>
+                                        </td>
+                                        <td th:text="${borrowing.book.title}">Lập trình Java cơ bản</td>
+                                        <td th:text="${borrowing.reader.name}">Nguyễn Văn A</td>
+                                        <td>
+                                            <span th:class="'badge ' + (${borrowing.status.name() == 'BORROWED'} ? 'bg-info' : ${borrowing.status.name() == 'RETURNED'} ? 'bg-success' : 'bg-warning')" 
+                                                  th:text="${borrowing.status.displayName}">Đang mượn</span>
+                                        </td>
+                                    </tr>
+                                    <tr th:if="${recentBorrowings == null or #lists.isEmpty(recentBorrowings)}">
+                                        <td colspan="5" class="text-center text-muted">Chưa có hoạt động nào</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions & Alerts -->
+            <div class="col-xl-4 mb-4">
+                <!-- Quick Actions -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Thao tác nhanh</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <a th:href="@{/books/new}" class="btn btn-primary">
+                                <i class="bi bi-plus-circle me-2"></i>Thêm sách mới
+                            </a>
+                            <a th:href="@{/readers/new}" class="btn btn-success">
+                                <i class="bi bi-person-plus me-2"></i>Thêm độc giả
+                            </a>
+                            <a th:href="@{/borrowings/new}" class="btn btn-info">
+                                <i class="bi bi-arrow-right-circle me-2"></i>Mượn sách
+                            </a>
+                            <a th:href="@{/borrowings/overdue}" class="btn btn-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>Sách quá hạn
+                            </a>
                         </div>
                     </div>
                 </div>
 
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">
-                                <i class="bi bi-arrow-left-right me-2"></i>Mượn sách gần đây
-                            </h5>
+                <!-- Alerts -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Cảnh báo</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Overdue Books Alert -->
+                        <div th:if="${overdueBorrowings != null and !#lists.isEmpty(overdueBorrowings)}" class="alert alert-warning">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                <div>
+                                    <strong th:text="${#lists.size(overdueBorrowings)}">3</strong> sách quá hạn
+                                    <br>
+                                    <small>Cần xử lý ngay</small>
+                                </div>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Độc giả</th>
-                                            <th>Sách</th>
-                                            <th>Ngày mượn</th>
-                                            <th>Trạng thái</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr th:each="borrowing : ${recentBorrowings}">
-                                            <td th:text="${borrowing.reader.name}">Tên độc giả</td>
-                                            <td>
-                                                <a th:href="@{/books/{id}(id=${borrowing.book.id})}" th:text="${borrowing.book.title}">Tên sách</a>
-                                            </td>
-                                            <td th:text="${#temporals.format(borrowing.borrowDate, 'dd/MM/yyyy')}">Ngày</td>
-                                            <td>
-                                                <span th:switch="${borrowing.status}" class="badge">
-                                                    <span th:case="BORROWED" class="bg-warning">Đang mượn</span>
-                                                    <span th:case="RETURNED" class="bg-success">Đã trả</span>
-                                                    <span th:case="OVERDUE" class="bg-danger">Quá hạn</span>
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+
+                        <!-- Due Soon Alert -->
+                        <div th:if="${dueSoonBorrowings != null and !#lists.isEmpty(dueSoonBorrowings)}" class="alert alert-info">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-clock-fill me-2"></i>
+                                <div>
+                                    <strong th:text="${#lists.size(dueSoonBorrowings)}">5</strong> sách sắp hết hạn
+                                    <br>
+                                    <small>Trong 7 ngày tới</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- New Books -->
+                        <div th:if="${recentBooks != null and !#lists.isEmpty(recentBooks)}" class="alert alert-success">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-book-fill me-2"></i>
+                                <div>
+                                    <strong th:text="${#lists.size(recentBooks)}">2</strong> sách mới
+                                    <br>
+                                    <small>Đã được thêm hôm nay</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div th:if="${(overdueBorrowings == null or #lists.isEmpty(overdueBorrowings)) and (dueSoonBorrowings == null or #lists.isEmpty(dueSoonBorrowings)) and (recentBooks == null or #lists.isEmpty(recentBooks))}">
+                            <div class="text-center text-muted">
+                                <i class="bi bi-check-circle-fill text-success fs-3"></i>
+                                <p class="mb-0 mt-2">Tất cả đều ổn!</p>
+                                <small>Không có cảnh báo nào</small>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Recent Books and Readers -->
+        <div class="row mt-4">
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Sách mới thêm</h5>
+                        <a th:href="@{/books}" class="btn btn-link btn-sm">Xem tất cả</a>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${recentBooks != null and !#lists.isEmpty(recentBooks)}">
+                            <div th:each="book : ${recentBooks}" class="d-flex align-items-center mb-3">
+                                <div class="bg-primary text-white rounded p-2 me-3">
+                                    <i class="bi bi-book"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1" th:text="${book.title}">Tên sách</h6>
+                                    <small class="text-muted" th:text="${book.author}">Tác giả</small>
+                                    <br>
+                                    <small class="text-muted">
+                                        Số lượng: <span th:text="${book.quantity}">5</span>
+                                    </small>
+                                </div>
+                                <span class="badge bg-success" th:text="${book.category}">Thể loại</span>
+                            </div>
+                        </div>
+                        <div th:if="${recentBooks == null or #lists.isEmpty(recentBooks)}" class="text-center text-muted">
+                            <i class="bi bi-inbox"></i>
+                            <p class="mb-0">Chưa có sách mới</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Độc giả mới</h5>
+                        <a th:href="@{/readers}" class="btn btn-link btn-sm">Xem tất cả</a>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${recentReaders != null and !#lists.isEmpty(recentReaders)}">
+                            <div th:each="reader : ${recentReaders}" class="d-flex align-items-center mb-3">
+                                <div class="bg-success text-white rounded-circle p-2 me-3" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-person"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1" th:text="${reader.name}">Tên độc giả</h6>
+                                    <small class="text-muted" th:text="${reader.email}">email@example.com</small>
+                                    <br>
+                                    <small class="text-muted" th:text="${reader.readerType.displayName}">Sinh viên</small>
+                                </div>
+                                <span th:class="'badge ' + (${reader.status.name() == 'ACTIVE'} ? 'bg-success' : 'bg-warning')" 
+                                      th:text="${reader.status.displayName}">Hoạt động</span>
+                            </div>
+                        </div>
+                        <div th:if="${recentReaders == null or #lists.isEmpty(recentReaders)}" class="text-center text-muted">
+                            <i class="bi bi-person-plus"></i>
+                            <p class="mb-0">Chưa có độc giả mới</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <style>
-        .timeline {
-            position: relative;
-            padding-left: 30px;
-        }
-        
-        .timeline-item {
-            position: relative;
-            margin-bottom: 20px;
-        }
-        
-        .timeline-marker {
-            position: absolute;
-            left: -35px;
-            top: 5px;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #007bff;
-        }
-        
-        .timeline-content {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 5px;
-            border-left: 3px solid #007bff;
-        }
-        
-        .timeline-title {
-            margin: 0;
-            font-size: 14px;
-            font-weight: 600;
-        }
-        
-        .timeline-text {
-            margin: 5px 0;
-            font-size: 12px;
-            color: #6c757d;
-        }
-        
-        .notification-item {
-            padding: 10px 0;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .notification-item:last-child {
-            border-bottom: none;
-        }
-        
-        .notification-icon {
-            font-size: 18px;
-        }
-    </style>
-
-    <script th:inline="javascript">
-        // Chart data from server
-        const borrowingData = /*[[${borrowingChartData}]]*/ [];
-        const categoryData = /*[[${categoryChartData}]]*/ [];
-        const popularBooksData = /*[[${popularBooksData}]]*/ [];
-
-        // Borrowing Chart
-        const borrowingCtx = document.getElementById('borrowingChart').getContext('2d');
-        new Chart(borrowingCtx, {
-            type: 'line',
-            data: {
-                labels: borrowingData.map(item => item.month),
-                datasets: [{
-                    label: 'Số lượt mượn',
-                    data: borrowingData.map(item => item.count),
-                    borderColor: 'rgb(75, 192, 192)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
-        // Category Chart
-        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
-        new Chart(categoryCtx, {
-            type: 'doughnut',
-            data: {
-                labels: categoryData.map(item => item.category),
-                datasets: [{
-                    data: categoryData.map(item => item.count),
-                    backgroundColor: [
-                        '#FF6384',
-                        '#36A2EB',
-                        '#FFCE56',
-                        '#4BC0C0',
-                        '#9966FF',
-                        '#FF9F40'
-                    ]
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
-            }
-        });
-
-        // Popular Books Chart
-        const popularBooksCtx = document.getElementById('popularBooksChart').getContext('2d');
-        new Chart(popularBooksCtx, {
-            type: 'bar',
-            data: {
-                labels: popularBooksData.map(item => item.title),
-                datasets: [{
-                    label: 'Số lần mượn',
-                    data: popularBooksData.map(item => item.borrowCount),
-                    backgroundColor: 'rgba(54, 162, 235, 0.8)'
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                }
-            }
-        });
-
-        function refreshDashboard() {
-            location.reload();
-        }
-    </script>
 </body>
 </html>
