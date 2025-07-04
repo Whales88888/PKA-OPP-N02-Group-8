@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head}">
+    <title>Báo cáo & Thống kê - Hệ thống quản lý thư viện</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div th:replace="~{layout/base :: body}">
+        <div th:fragment="content">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-graph-up me-2"></i>Báo cáo & Thống kê</h2>
+                <a href="/" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Quay lại Dashboard
+                </a>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-body text-center">
+                            <h5 th:text="'Tổng số sách: ' + ${bookStats.total}">Tổng số sách: 0</h5>
+                            <h5 th:text="'Độc giả: ' + ${readerStats.total}">Độc giả: 0</h5>
+                            <h5 th:text="'Lượt mượn: ' + ${borrowingStats.total}">Lượt mượn: 0</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <canvas id="borrowingChart"></canvas>
+                </div>
+            </div>
+            <script th:inline="javascript">
+                /*<![CDATA[*/
+                const data = /*[[${borrowingStats.chartData}]]*/ [];
+                // Chart.js code here
+                /*]]>*/
+            </script>
+        </div>
+    </div>
+</body>
+</html>

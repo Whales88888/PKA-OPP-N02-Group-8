@@ -82,4 +82,8 @@ public interface ReaderRepository extends JpaRepository<Reader, Long> {
     
     // Kiểm tra số điện thoại đã tồn tại
     boolean existsByPhone(String phone);
+
+    long countByStatus(Reader.ReaderStatus status);
+    @Query("SELECT COUNT(r) FROM Reader r WHERE MONTH(r.registrationDate) = MONTH(CURRENT_DATE) AND YEAR(r.registrationDate) = YEAR(CURRENT_DATE)")
+    long countNewReadersThisMonth();
 }

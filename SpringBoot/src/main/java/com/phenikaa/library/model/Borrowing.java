@@ -2,9 +2,6 @@ package com.phenikaa.library.model;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -12,9 +9,6 @@ import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "borrowings")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class Borrowing {
     
     @Id
@@ -148,5 +142,133 @@ public class Borrowing {
         public String getDisplayName() {
             return displayName;
         }
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Book getBook() {
+        return book;
+    }
+
+    public void setBook(Book book) {
+        this.book = book;
+    }
+
+    public Reader getReader() {
+        return reader;
+    }
+
+    public void setReader(Reader reader) {
+        this.reader = reader;
+    }
+
+    public LocalDate getBorrowDate() {
+        return borrowDate;
+    }
+
+    public void setBorrowDate(LocalDate borrowDate) {
+        this.borrowDate = borrowDate;
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(LocalDate dueDate) {
+        this.dueDate = dueDate;
+    }
+
+    public LocalDate getReturnDate() {
+        return returnDate;
+    }
+
+    public void setReturnDate(LocalDate returnDate) {
+        this.returnDate = returnDate;
+    }
+
+    public BorrowStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(BorrowStatus status) {
+        this.status = status;
+    }
+
+    public Integer getRenewalCount() {
+        return renewalCount;
+    }
+
+    public void setRenewalCount(Integer renewalCount) {
+        this.renewalCount = renewalCount;
+    }
+
+    public Integer getMaxRenewals() {
+        return maxRenewals;
+    }
+
+    public void setMaxRenewals(Integer maxRenewals) {
+        this.maxRenewals = maxRenewals;
+    }
+
+    public Double getFineAmount() {
+        return fineAmount;
+    }
+
+    public void setFineAmount(Double fineAmount) {
+        this.fineAmount = fineAmount;
+    }
+
+    public String getBookConditionBorrowed() {
+        return bookConditionBorrowed;
+    }
+
+    public void setBookConditionBorrowed(String bookConditionBorrowed) {
+        this.bookConditionBorrowed = bookConditionBorrowed;
+    }
+
+    public String getBookConditionReturned() {
+        return bookConditionReturned;
+    }
+
+    public void setBookConditionReturned(String bookConditionReturned) {
+        this.bookConditionReturned = bookConditionReturned;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public Librarian getProcessedBy() {
+        return processedBy;
+    }
+
+    public void setProcessedBy(Librarian processedBy) {
+        this.processedBy = processedBy;
     }
 }

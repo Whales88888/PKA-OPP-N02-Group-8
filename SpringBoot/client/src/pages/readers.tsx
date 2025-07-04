@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,19 @@ import ReaderModal from "@/components/modals/reader-modal";
 import { getInitials, formatDate } from "@/lib/utils";
 import { UserPlus, Search, Edit, Trash2, Eye, Book } from "lucide-react";
 import type { Reader } from "@shared/schema";
+import { API_BASE } from "@/config/api";
+
+// Map backend fields to frontend camelCase
+function mapReaderApi(reader: any): Reader {
+  return {
+    ...reader,
+    registrationDate: reader.registrationDate ?? reader.registration_date,
+    expiryDate: reader.expiryDate ?? reader.expiry_date,
+    readerType: reader.readerType ?? reader.reader_type,
+    isActive: reader.isActive ?? (reader.status === 'ACTIVE' || reader.status === true),
+    // add more mappings as needed
+  };
+}
 
 export default function Readers() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,35 +32,67 @@ export default function Readers() {
   const [selectedReader, setSelectedReader] = useState<Reader | null>(null);
   const { toast } = useToast();
 
-  const { data: readers, isLoading } = useQuery<Reader[]>({
-    queryKey: ["/api/readers", { search: searchQuery }],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (searchQuery) params.append("search", searchQuery);
-      
-      const response = await fetch(`/api/readers?${params.toString()}`);
-      if (!response.ok) throw new Error("Failed to fetch readers");
-      return response.json();
+  const { data: readers, error, isLoading } = useQuery({
+    queryKey: ['readers'],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/readers`).then(r => {
+        if (!r.ok) throw new Error('Failed to load readers');
+        return r.json();
+      }).catch(console.error)
+  });
+
+  const addReaderMutation = useMutation({
+    mutationFn: async (reader: Partial<Reader>) => {
+      return fetch(`${API_BASE}/api/readers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reader),
+      })
+        .then(res => res.json())
+        .catch(console.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["readers"] });
+      setIsModalOpen(false);
+      toast({ title: "Success", description: "Reader added successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to add reader", variant: "destructive" });
+    },
+  });
+
+  const editReaderMutation = useMutation({
+    mutationFn: async (reader: Reader) => {
+      return fetch(`${API_BASE}/api/readers/${reader.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reader),
+      })
+        .then(res => res.json())
+        .catch(console.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["readers"] });
+      setIsModalOpen(false);
+      toast({ title: "Success", description: "Reader updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update reader", variant: "destructive" });
     },
   });
 
   const deleteReaderMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/readers/${id}`);
+      return fetch(`${API_BASE}/api/readers/${id}`, { method: "DELETE" })
+        .then(res => res.json())
+        .catch(console.error);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/readers"] });
-      toast({
-        title: "Thành công",
-        description: "Đã xóa độc giả thành công",
-      });
+      queryClient.invalidateQueries({ queryKey: ["readers"] });
+      toast({ title: "Success", description: "Reader deleted successfully" });
     },
     onError: () => {
-      toast({
-        title: "Lỗi",
-        description: "Không thể xóa độc giả",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to delete reader", variant: "destructive" });
     },
   });
 
@@ -90,6 +135,29 @@ export default function Readers() {
     return colors[id % colors.length];
   };
 
+  // Always use an array for rendering, whether API returns array or Page object
+  const readersArray = (Array.isArray(readers) ? readers : readers?.content || []).map(mapReaderApi);
+  const safeReadersArray = Array.isArray(readersArray) ? readersArray : [];
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-4 bg-slate-200 rounded w-24 mb-2"></div>
+                <div className="h-8 bg-slate-200 rounded w-16 mb-4"></div>
+                <div className="h-4 bg-slate-200 rounded w-32"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (error) return <div className="p-4 bg-red-100 text-red-700 rounded mb-4">Lỗi: {error.message}</div>;
+
   return (
     <div className="space-y-6">
       <Card>
@@ -122,31 +190,9 @@ export default function Readers() {
 
         {/* Readers Grid */}
         <CardContent className="p-6">
-          {isLoading ? (
+          {safeReadersArray.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <Card key={index} className="border border-slate-200">
-                  <CardContent className="p-6">
-                    <div className="flex items-start space-x-4">
-                      <Skeleton className="w-12 h-12 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-20" />
-                        <Skeleton className="h-3 w-40" />
-                        <Skeleton className="h-3 w-28" />
-                      </div>
-                    </div>
-                    <div className="mt-4 flex space-x-2">
-                      <Skeleton className="h-8 flex-1" />
-                      <Skeleton className="h-8 w-8" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : readers && readers.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {readers.map((reader) => (
+              {safeReadersArray.map((reader: Reader) => (
                 <Card key={reader.id} className="border border-slate-200 hover:shadow-md transition-shadow duration-200">
                   <CardContent className="p-6">
                     <div className="flex items-start space-x-4">
@@ -235,7 +281,7 @@ export default function Readers() {
         }}
         reader={selectedReader}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/readers"] });
+          queryClient.invalidateQueries({ queryKey: ["readers"] });
         }}
       />
     </div>

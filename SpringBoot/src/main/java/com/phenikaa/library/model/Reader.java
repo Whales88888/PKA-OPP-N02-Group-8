@@ -145,4 +145,44 @@ public class Reader {
             return displayName;
         }
     }
+
+    // Manual getter and setter for id
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    // Manual getter and setter for email
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+    // Manual getter and setter for studentId
+    public String getStudentId() { return studentId; }
+    public void setStudentId(String studentId) { this.studentId = studentId; }
+    // Manual getter and setter for phone
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+    // Manual getter and setter for maxBorrowBooks
+    public Integer getMaxBorrowBooks() { return maxBorrowBooks; }
+    public void setMaxBorrowBooks(Integer maxBorrowBooks) { this.maxBorrowBooks = maxBorrowBooks; }
+    // Manual getter and setter for expiryDate
+    public java.time.LocalDate getExpiryDate() { return expiryDate; }
+    public void setExpiryDate(java.time.LocalDate expiryDate) { this.expiryDate = expiryDate; }
+    // Manual getter and setter for status
+    public ReaderStatus getStatus() { return status; }
+    public void setStatus(ReaderStatus status) { this.status = status; }
+    // Getter and setter for name
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    // Getter and setter for address
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
+    // Getter and setter for dateOfBirth
+    public java.time.LocalDate getDateOfBirth() { return dateOfBirth; }
+    public void setDateOfBirth(java.time.LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
+    // Đúng getter/setter cho readerType (enum)
+    public ReaderType getReaderType() { return readerType; }
+    public void setReaderType(ReaderType readerType) { this.readerType = readerType; }
+    // Getter and setter for notes
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
+    // Getter and setter for currentBorrowedBooks
+    public Integer getCurrentBorrowedBooks() { return currentBorrowedBooks; }
+    public void setCurrentBorrowedBooks(Integer currentBorrowedBooks) { this.currentBorrowedBooks = currentBorrowedBooks; }
 }

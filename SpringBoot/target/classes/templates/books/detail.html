@@ -33,6 +33,7 @@
 
             <!-- Book Details -->
             <div class="row">
+                <!-- Thông tin sách -->
                 <div class="col-md-8">
                     <div class="card">
                         <div class="card-header">
@@ -117,7 +118,6 @@
                                     </table>
                                 </div>
                             </div>
-                            
                             <div class="mt-3" th:if="${book.description}">
                                 <h6>Mô tả:</h6>
                                 <p th:text="${book.description}" class="text-muted">Mô tả sách</p>
@@ -125,9 +125,28 @@
                         </div>
                     </div>
                 </div>
-                
+
+                <!-- Bổ sung ảnh bìa -->
                 <div class="col-md-4">
-                    <!-- Quick Actions -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">Ảnh bìa</h6>
+                        </div>
+                        <div class="card-body text-center">
+                            <div th:if="${book.coverImageUrl != null}">
+                                <img th:src="${book.coverImageUrl}" class="img-fluid rounded shadow" alt="Ảnh bìa sách" style="max-height: 300px;">
+                            </div>
+                            <div th:unless="${book.coverImageUrl != null}" class="text-muted">
+                                Không có ảnh bìa
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions + Statistics -->
+            <div class="row">
+                <div class="col-md-4">
                     <div class="card mb-3">
                         <div class="card-header">
                             <h6 class="mb-0">Thao tác nhanh</h6>
@@ -152,8 +171,7 @@
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Statistics -->
+
                     <div class="card">
                         <div class="card-header">
                             <h6 class="mb-0">Thống kê</h6>
@@ -206,13 +224,11 @@
                                 <tr th:each="borrowing : ${book.borrowings}">
                                     <td th:text="${#temporals.format(borrowing.borrowDate, 'dd/MM/yyyy')}">01/01/2023</td>
                                     <td>
-                                        <span th:if="${borrowing.returnDate}" 
-                                              th:text="${#temporals.format(borrowing.returnDate, 'dd/MM/yyyy')}">01/01/2023</span>
+                                        <span th:if="${borrowing.returnDate}" th:text="${#temporals.format(borrowing.returnDate, 'dd/MM/yyyy')}">01/01/2023</span>
                                         <span th:unless="${borrowing.returnDate}" class="text-muted">-</span>
                                     </td>
                                     <td>
-                                        <a th:href="@{/readers/{id}(id=${borrowing.reader.id})}" 
-                                           th:text="${borrowing.reader.name}">Tên độc giả</a>
+                                        <a th:href="@{/readers/{id}(id=${borrowing.reader.id})}" th:text="${borrowing.reader.name}">Tên độc giả</a>
                                     </td>
                                     <td>
                                         <span th:switch="${borrowing.status}" class="badge">
@@ -253,6 +269,7 @@
                     </div>
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -265,4 +282,4 @@
         }
     </script>
 </body>
-</html> 
+</html>
