@@ -29,14 +29,11 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     // Tìm kiếm sách có sẵn
     List<Book> findByAvailableQuantityGreaterThan(Integer quantity);
     
-    // Tìm kiếm sách theo trạng thái
-    List<Book> findByStatus(Book.BookStatus status);
-    
     // Tìm kiếm sách theo nhà xuất bản
     List<Book> findByPublisherContainingIgnoreCase(String publisher);
     
     // Tìm kiếm sách theo năm xuất bản
-    List<Book> findByPublicationYear(Integer year);
+    List<Book> findByPublishYear(Integer year);
     
     // Tìm kiếm tổng hợp
     @Query("SELECT b FROM Book b WHERE " +
@@ -81,9 +78,6 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     // Kiểm tra ISBN đã tồn tại
     boolean existsByIsbn(String isbn);
     
-    // Sách theo vị trí kệ
-    List<Book> findByShelfLocationContainingIgnoreCase(String shelfLocation);
-
     @Query("SELECT b FROM Book b WHERE " +
            "(:title IS NULL OR :title = '' OR LOWER(b.title) LIKE LOWER(CONCAT('%', :title, '%'))) AND " +
            "(:author IS NULL OR :author = '' OR LOWER(b.author) LIKE LOWER(CONCAT('%', :author, '%'))) AND " +

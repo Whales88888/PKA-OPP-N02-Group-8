@@ -1,14 +1,16 @@
 package com.phenikaa.library.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "borrowings")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Borrowing {
     
     @Id
@@ -34,41 +36,18 @@ public class Borrowing {
     @Column(name = "return_date")
     private LocalDate returnDate;
     
-    @Enumerated(EnumType.STRING)
-    private BorrowStatus status = BorrowStatus.BORROWED;
+    @Column(nullable = false)
+    private String status = "borrowed";
     
-    @Column(name = "renewal_count")
-    private Integer renewalCount = 0;
-    
-    @Column(name = "max_renewals")
-    private Integer maxRenewals = 2;
-    
-    @Column(name = "fine_amount")
-    private Double fineAmount = 0.0;
-    
-    @Column(name = "book_condition_borrowed")
-    private String bookConditionBorrowed;
-    
-    @Column(name = "book_condition_returned")
-    private String bookConditionReturned;
-    
-    private String notes;
+    @Column(name = "book_condition")
+    private String bookCondition;
     
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-    
-    // Thủ thư xử lý
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "librarian_id")
-    private Librarian processedBy;
-    
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
         if (borrowDate == null) {
             borrowDate = LocalDate.now();
         }
@@ -78,46 +57,29 @@ public class Borrowing {
         }
     }
     
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
-    
     // Business methods
     public boolean isOverdue() {
-        return status == BorrowStatus.BORROWED && LocalDate.now().isAfter(dueDate);
+        return "borrowed".equals(status) && LocalDate.now().isAfter(dueDate);
     }
     
     public long getDaysOverdue() {
         if (!isOverdue()) return 0;
-        return ChronoUnit.DAYS.between(dueDate, LocalDate.now());
+        return java.time.temporal.ChronoUnit.DAYS.between(dueDate, LocalDate.now());
     }
     
     public boolean canRenew() {
-        return status == BorrowStatus.BORROWED && 
-               renewalCount < maxRenewals && 
-               !isOverdue();
+        return "borrowed".equals(status) && !isOverdue();
     }
     
     public void renewBorrowing(int additionalDays) {
         if (canRenew()) {
             dueDate = dueDate.plusDays(additionalDays);
-            renewalCount++;
-            updatedAt = LocalDateTime.now();
         }
     }
     
     public void returnBook() {
         returnDate = LocalDate.now();
-        status = BorrowStatus.RETURNED;
-        
-        // Tính phạt nếu trả muộn
-        if (isOverdue()) {
-            long daysOverdue = getDaysOverdue();
-            fineAmount = daysOverdue * 5000.0; // 5000 VND/ngày
-        }
-        
-        updatedAt = LocalDateTime.now();
+        status = "returned";
     }
     
     public double calculateFine() {
@@ -125,25 +87,8 @@ public class Borrowing {
         long daysOverdue = getDaysOverdue();
         return daysOverdue * 5000.0; // 5000 VND/ngày
     }
-    
-    public enum BorrowStatus {
-        BORROWED("Đang mượn"),
-        RETURNED("Đã trả"),
-        OVERDUE("Quá hạn"),
-        LOST("Mất sách"),
-        DAMAGED("Hư hỏng");
-        
-        private final String displayName;
-        
-        BorrowStatus(String displayName) {
-            this.displayName = displayName;
-        }
-        
-        public String getDisplayName() {
-            return displayName;
-        }
-    }
 
+    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -192,60 +137,20 @@ public class Borrowing {
         this.returnDate = returnDate;
     }
 
-    public BorrowStatus getStatus() {
+    public String getStatus() {
         return status;
     }
 
-    public void setStatus(BorrowStatus status) {
+    public void setStatus(String status) {
         this.status = status;
     }
 
-    public Integer getRenewalCount() {
-        return renewalCount;
+    public String getBookCondition() {
+        return bookCondition;
     }
 
-    public void setRenewalCount(Integer renewalCount) {
-        this.renewalCount = renewalCount;
-    }
-
-    public Integer getMaxRenewals() {
-        return maxRenewals;
-    }
-
-    public void setMaxRenewals(Integer maxRenewals) {
-        this.maxRenewals = maxRenewals;
-    }
-
-    public Double getFineAmount() {
-        return fineAmount;
-    }
-
-    public void setFineAmount(Double fineAmount) {
-        this.fineAmount = fineAmount;
-    }
-
-    public String getBookConditionBorrowed() {
-        return bookConditionBorrowed;
-    }
-
-    public void setBookConditionBorrowed(String bookConditionBorrowed) {
-        this.bookConditionBorrowed = bookConditionBorrowed;
-    }
-
-    public String getBookConditionReturned() {
-        return bookConditionReturned;
-    }
-
-    public void setBookConditionReturned(String bookConditionReturned) {
-        this.bookConditionReturned = bookConditionReturned;
-    }
-
-    public String getNotes() {
-        return notes;
-    }
-
-    public void setNotes(String notes) {
-        this.notes = notes;
+    public void setBookCondition(String bookCondition) {
+        this.bookCondition = bookCondition;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -254,21 +159,5 @@ public class Borrowing {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public Librarian getProcessedBy() {
-        return processedBy;
-    }
-
-    public void setProcessedBy(Librarian processedBy) {
-        this.processedBy = processedBy;
     }
 }

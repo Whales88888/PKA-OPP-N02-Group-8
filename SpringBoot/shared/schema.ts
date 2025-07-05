@@ -1,40 +1,40 @@
-import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { mysqlTable, varchar, int, boolean, date, timestamp } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const books = pgTable("books", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  author: text("author").notNull(),
-  isbn: text("isbn"),
-  category: text("category").notNull(),
-  publishYear: integer("publish_year"),
-  publisher: text("publisher"),
-  description: text("description"),
-  quantity: integer("quantity").notNull().default(1),
-  availableQuantity: integer("available_quantity").notNull().default(1),
+export const books = mysqlTable("books", {
+  id: int("id").primaryKey().autoincrement(),
+  title: varchar("title", { length: 255 }).notNull(),
+  author: varchar("author", { length: 255 }).notNull(),
+  isbn: varchar("isbn", { length: 50 }),
+  category: varchar("category", { length: 100 }).notNull(),
+  publishYear: int("publish_year"),
+  publisher: varchar("publisher", { length: 255 }),
+  description: varchar("description", { length: 255 }),
+  quantity: int("quantity").notNull().default(1),
+  availableQuantity: int("available_quantity").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const readers = pgTable("readers", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  phone: text("phone"),
-  address: text("address"),
+export const readers = mysqlTable("readers", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  phone: varchar("phone", { length: 20 }),
+  address: varchar("address", { length: 255 }),
   registrationDate: timestamp("registration_date").defaultNow(),
   isActive: boolean("is_active").notNull().default(true),
 });
 
-export const borrowings = pgTable("borrowings", {
-  id: serial("id").primaryKey(),
-  bookId: integer("book_id").notNull(),
-  readerId: integer("reader_id").notNull(),
-  borrowDate: timestamp("borrow_date").notNull(),
-  dueDate: timestamp("due_date").notNull(),
-  returnDate: timestamp("return_date"),
-  status: text("status").notNull().default("borrowed"), // borrowed, returned, overdue
-  condition: text("condition"), // good, fair, damaged
+export const borrowings = mysqlTable("borrowings", {
+  id: int("id").primaryKey().autoincrement(),
+  bookId: int("book_id").notNull().references(() => books.id),
+  readerId: int("reader_id").notNull().references(() => readers.id),
+  borrowDate: date("borrow_date").notNull(),
+  dueDate: date("due_date").notNull(),
+  returnDate: date("return_date"),
+  status: varchar("status", { length: 20 }).notNull().default("borrowed"), // borrowed, returned, overdue
+  bookCondition: varchar("book_condition", { length: 20 }), // good, fair, damaged
   createdAt: timestamp("created_at").defaultNow(),
 });
 

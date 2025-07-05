@@ -31,39 +31,22 @@ public class ReaderController {
                              @RequestParam(defaultValue = "name") String sortBy,
                              @RequestParam(defaultValue = "asc") String sortDir,
                              @RequestParam(required = false) String search,
-                             @RequestParam(required = false) String readerType,
-                             @RequestParam(required = false) String status,
+                             @RequestParam(required = false) String email,
+                             @RequestParam(required = false) Boolean isActive,
                              Model model) {
         
         Sort sort = sortDir.equalsIgnoreCase("desc") ? 
             Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
         
-        Reader.ReaderType type = null;
-        Reader.ReaderStatus readerStatus = null;
-        
-        try {
-            if (readerType != null && !readerType.trim().isEmpty()) {
-                type = Reader.ReaderType.valueOf(readerType);
-            }
-            if (status != null && !status.trim().isEmpty()) {
-                readerStatus = Reader.ReaderStatus.valueOf(status);
-            }
-        } catch (IllegalArgumentException e) {
-            // Invalid enum values, ignore
-        }
-        
-        Page<Reader> readerPage = readerService.searchReaders(search, null, type, readerStatus, pageable);
+        Page<Reader> readerPage = readerService.searchReaders(search, email, pageable);
         
         model.addAttribute("readers", readerPage.getContent());
         model.addAttribute("currentPage", page);
         model.addAttribute("totalPages", readerPage.getTotalPages());
         model.addAttribute("totalElements", readerPage.getTotalElements());
-        model.addAttribute("readerTypes", Reader.ReaderType.values());
-        model.addAttribute("readerStatuses", Reader.ReaderStatus.values());
         model.addAttribute("currentSearch", search);
-        model.addAttribute("currentReaderType", readerType);
-        model.addAttribute("currentStatus", status);
+        model.addAttribute("currentEmail", email);
         model.addAttribute("sortBy", sortBy);
         model.addAttribute("sortDir", sortDir);
         
@@ -74,8 +57,6 @@ public class ReaderController {
     @GetMapping("/new")
     public String showCreateForm(Model model) {
         model.addAttribute("reader", new Reader());
-        model.addAttribute("readerTypes", Reader.ReaderType.values());
-        model.addAttribute("readerStatuses", Reader.ReaderStatus.values());
         return "readers/form";
     }
     
@@ -84,8 +65,6 @@ public class ReaderController {
     public String createReader(@Valid @ModelAttribute Reader reader, 
                               BindingResult result, Model model) {
         if (result.hasErrors()) {
-            model.addAttribute("readerTypes", Reader.ReaderType.values());
-            model.addAttribute("readerStatuses", Reader.ReaderStatus.values());
             return "readers/form";
         }
         
@@ -94,8 +73,6 @@ public class ReaderController {
             return "redirect:/readers?success=created";
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
-            model.addAttribute("readerTypes", Reader.ReaderType.values());
-            model.addAttribute("readerStatuses", Reader.ReaderStatus.values());
             return "readers/form";
         }
     }
@@ -117,8 +94,6 @@ public class ReaderController {
         Optional<Reader> reader = readerService.getReaderById(id);
         if (reader.isPresent()) {
             model.addAttribute("reader", reader.get());
-            model.addAttribute("readerTypes", Reader.ReaderType.values());
-            model.addAttribute("readerStatuses", Reader.ReaderStatus.values());
             return "readers/form";
         }
         return "redirect:/readers?error=notfound";
@@ -131,8 +106,6 @@ public class ReaderController {
                               BindingResult result, Model model) {
         if (result.hasErrors()) {
             reader.setId(id);
-            model.addAttribute("readerTypes", Reader.ReaderType.values());
-            model.addAttribute("readerStatuses", Reader.ReaderStatus.values());
             return "readers/form";
         }
         
@@ -142,8 +115,6 @@ public class ReaderController {
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
             reader.setId(id);
-            model.addAttribute("readerTypes", Reader.ReaderType.values());
-            model.addAttribute("readerStatuses", Reader.ReaderStatus.values());
             return "readers/form";
         }
     }
@@ -156,18 +127,6 @@ public class ReaderController {
             return "redirect:/readers?success=deleted";
         } catch (Exception e) {
             return "redirect:/readers?error=" + e.getMessage();
-        }
-    }
-    
-    // Gia hạn thẻ độc giả
-    @PostMapping("/{id}/renew")
-    public String renewMembership(@PathVariable Long id, 
-                                 @RequestParam(defaultValue = "12") int months) {
-        try {
-            readerService.renewMembership(id, months);
-            return "redirect:/readers/" + id + "?success=renewed";
-        } catch (Exception e) {
-            return "redirect:/readers/" + id + "?error=" + e.getMessage();
         }
     }
     
@@ -205,10 +164,10 @@ public class ReaderController {
         public ResponseEntity<Reader> updateReader(@PathVariable Long id, 
                                                   @Valid @RequestBody Reader reader) {
             try {
-                Reader updatedReader = readerService.updateReader(id, reader);
-                return ResponseEntity.ok(updatedReader);
+                Reader updated = readerService.updateReader(id, reader);
+                return ResponseEntity.ok(updated);
             } catch (Exception e) {
-                return ResponseEntity.badRequest().build();
+                return ResponseEntity.notFound().build();
             }
         }
         
@@ -218,7 +177,7 @@ public class ReaderController {
                 readerService.deleteReader(id);
                 return ResponseEntity.ok().build();
             } catch (Exception e) {
-                return ResponseEntity.badRequest().build();
+                return ResponseEntity.notFound().build();
             }
         }
         
@@ -226,39 +185,17 @@ public class ReaderController {
         public ResponseEntity<Page<Reader>> searchReaders(
                 @RequestParam(required = false) String name,
                 @RequestParam(required = false) String email,
-                @RequestParam(required = false) String readerType,
-                @RequestParam(required = false) String status,
                 @RequestParam(defaultValue = "0") int page,
                 @RequestParam(defaultValue = "10") int size) {
             
-            Reader.ReaderType type = null;
-            Reader.ReaderStatus readerStatus = null;
-            
-            try {
-                if (readerType != null && !readerType.trim().isEmpty()) {
-                    type = Reader.ReaderType.valueOf(readerType);
-                }
-                if (status != null && !status.trim().isEmpty()) {
-                    readerStatus = Reader.ReaderStatus.valueOf(status);
-                }
-            } catch (IllegalArgumentException e) {
-                // Invalid enum values, ignore
-            }
-            
             Pageable pageable = PageRequest.of(page, size);
-            Page<Reader> readers = readerService.searchReaders(name, email, type, readerStatus, pageable);
-            return ResponseEntity.ok(readers);
+            Page<Reader> result = readerService.searchReaders(name, email, pageable);
+            return ResponseEntity.ok(result);
         }
         
-        @GetMapping("/expired")
-        public ResponseEntity<List<Reader>> getExpiredReaders() {
-            return ResponseEntity.ok(readerService.getExpiredReaders());
-        }
-        
-        @GetMapping("/expiring-soon")
-        public ResponseEntity<List<Reader>> getReadersExpiringSoon(
-                @RequestParam(defaultValue = "30") int days) {
-            return ResponseEntity.ok(readerService.getReadersExpiringSoon(days));
+        @GetMapping("/recent")
+        public ResponseEntity<List<Reader>> getRecentlyRegistered(@RequestParam(defaultValue = "10") int limit) {
+            return ResponseEntity.ok(readerService.getRecentlyRegistered(limit));
         }
         
         @GetMapping("/statistics")
@@ -266,19 +203,9 @@ public class ReaderController {
             return ResponseEntity.ok(new Object() {
                 public final Long totalReaders = readerService.getTotalReadersCount();
                 public final Long activeReaders = readerService.getActiveReadersCount();
-                public final Long readersWithBorrowedBooks = readerService.getReadersWithBorrowedBooksCount();
+                public final Long inactiveReaders = readerService.getInactiveReadersCount();
+                public final Long newReadersThisMonth = readerService.getNewReadersThisMonth();
             });
-        }
-        
-        @PostMapping("/{id}/renew")
-        public ResponseEntity<Void> renewMembership(@PathVariable Long id, 
-                                                   @RequestParam(defaultValue = "12") int months) {
-            try {
-                readerService.renewMembership(id, months);
-                return ResponseEntity.ok().build();
-            } catch (Exception e) {
-                return ResponseEntity.badRequest().build();
-            }
         }
     }
 }

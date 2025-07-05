@@ -160,8 +160,8 @@ public class BookController {
         private BookService bookService;
         
         @GetMapping
-        public ResponseEntity<List<Book>> getAllBooks() {
-            return ResponseEntity.ok(bookService.getAllBooks());
+        public ResponseEntity<Page<Book>> getAllBooks(Pageable pageable) {
+            return ResponseEntity.ok(bookService.getAllBooks(pageable));
         }
         
         @GetMapping("/{id}")

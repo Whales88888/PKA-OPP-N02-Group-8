@@ -172,7 +172,6 @@ public class MainController {
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalReaders", readerService.getTotalReadersCount());
         stats.put("activeReaders", readerService.getActiveReadersCount());
-        stats.put("suspendedReaders", readerService.getSuspendedReadersCount());
         stats.put("newReadersThisMonth", readerService.getNewReadersThisMonth());
         return stats;
     }

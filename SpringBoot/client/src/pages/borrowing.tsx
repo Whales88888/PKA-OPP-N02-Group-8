@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,12 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
-import { apiRequest } from "@/lib/queryClient";
-import { formatDate, isOverdue, calculateDaysUntilDue, getStatusColor, getStatusText } from "@/lib/utils";
+import { formatDate, calculateDaysUntilDue, getStatusColor, getStatusText } from "@/lib/utils";
 import { BookOpen, Undo, AlertTriangle, History } from "lucide-react";
-import type { BorrowingWithDetails, Book, Reader } from "@shared/schema";
-import { API_BASE } from "@/config/api";
+import { BorrowingWithDetails, Book, Reader } from "../types";
+import { apiService } from "../services/api";
 
 export default function Borrowing() {
   const [borrowForm, setBorrowForm] = useState({
@@ -25,18 +23,57 @@ export default function Borrowing() {
   });
   const [returnForm, setReturnForm] = useState({
     borrowingId: "",
-    condition: "good",
+    bookCondition: "good",
   });
+  const [activeTab, setActiveTab] = useState("borrow");
+  const returnTabRef = useRef<HTMLButtonElement>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Calculate default due date (14 days from borrow date)
+  // 1. Move all useQuery hooks to the top of the component
+  const { data: borrowings, error: borrowingsError, isLoading: borrowingsLoading } = useQuery({
+    queryKey: ['borrowings', { type: 'history' }],
+    queryFn: () => apiService.getBorrowings('history'),
+  });
+  const { data: books, isLoading: booksLoading, error: booksError } = useQuery({
+    queryKey: ["books"],
+    queryFn: () => apiService.getBooks(),
+  });
+  const { data: readers, isLoading: readersLoading, error: readersError } = useQuery({
+    queryKey: ["readers"],
+    queryFn: () => apiService.getReaders(),
+  });
+  const { data: activeBorrowings, isLoading: activeLoading, error: activeError } = useQuery({
+    queryKey: ['borrowings', { type: 'active' }],
+    queryFn: () => apiService.getBorrowings('active'),
+  });
+  const { data: overdueBorrowings, isLoading: overdueLoading, error: overdueError } = useQuery({
+    queryKey: ['borrowings', { type: 'overdue' }],
+    queryFn: () => apiService.getBorrowings('overdue'),
+  });
+
+  // 2. Declare all data normalization variables after the hooks
+  const booksArray: Book[] = Array.isArray(books) ? books : (books?.content ?? []);
+  const readersArray: Reader[] = Array.isArray(readers) ? readers : [];
+  const borrowingsArray: BorrowingWithDetails[] = Array.isArray(borrowings) ? borrowings : [];
+  const activeBooksForReturn: BorrowingWithDetails[] = Array.isArray(activeBorrowings) ? activeBorrowings : [];
+  const safeOverdueBorrowings: BorrowingWithDetails[] = Array.isArray(overdueBorrowings) ? overdueBorrowings : [];
+
+  // Calculate default due date (30 days from borrow date)
   const calculateDueDate = (borrowDate: string) => {
     const date = new Date(borrowDate);
-    date.setDate(date.getDate() + 14);
+    date.setDate(date.getDate() + 30);
     return date.toISOString().split('T')[0];
   };
+
+  // Ensure dueDate is always set to borrowDate + 30 on initial load and when borrowDate changes
+  useEffect(() => {
+    setBorrowForm(prev => ({
+      ...prev,
+      dueDate: calculateDueDate(prev.borrowDate)
+    }));
+  }, [borrowForm.borrowDate]);
 
   // Update due date when borrow date changes
   const handleBorrowDateChange = (date: string) => {
@@ -47,141 +84,57 @@ export default function Borrowing() {
     }));
   };
 
-  // Fetch borrowings
-  const { data: borrowings, error: borrowingsError, isLoading: borrowingsLoading } = useQuery({
-    queryKey: ['borrowings', { type: 'all' }],
-    queryFn: () =>
-      fetch(`${API_BASE}/api/borrowings`).then(r => {
-        if (!r.ok) throw new Error('Failed to load borrowings');
-        return r.json();
-      }).catch(console.error)
-  });
-
-  // Fetch books
-  const { data: books } = useQuery({
-    queryKey: ["books"],
-    queryFn: async () => {
-      return fetch(`${API_BASE}/api/books`)
-        .then(res => res.json())
-        .catch(console.error);
-    },
-  });
-
-  // Fetch readers
-  const { data: readers } = useQuery({
-    queryKey: ["readers"],
-    queryFn: async () => {
-      return fetch(`${API_BASE}/api/readers`)
-        .then(res => res.json())
-        .catch(console.error);
-    },
-  });
-
   // Create borrowing
   const createBorrowingMutation = useMutation({
     mutationFn: async (data: any) => {
-      // The backend expects bookId and readerId as query params, not JSON body
-      const params = new URLSearchParams({
-        bookId: data.bookId,
-        readerId: data.readerId
+      return apiService.createBorrowing({
+        bookId: parseInt(data.bookId),
+        readerId: parseInt(data.readerId),
+        borrowDate: data.borrowDate,
+        dueDate: data.dueDate,
       });
-      return fetch(`${API_BASE}/api/borrowings?${params.toString()}`, {
-        method: "POST"
-      })
-        .then(res => res.json())
-        .catch(console.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["borrowings"] });
       queryClient.invalidateQueries({ queryKey: ["books"] });
-      toast({ title: "Success", description: "Borrowing created successfully" });
+      setBorrowForm({
+        readerId: "",
+        bookId: "",
+        borrowDate: new Date().toISOString().split('T')[0],
+        dueDate: "",
+      });
+      toast({ title: "Thành công", description: "Tạo giao dịch mượn sách thành công" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to create borrowing", variant: "destructive" });
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.error || error?.message || "Không thể tạo giao dịch mượn sách";
+      toast({
+        title: "Lỗi",
+        description: errorMessage,
+        variant: "destructive"
+      });
     },
   });
 
   // Return borrowing
   const returnBookMutation = useMutation({
-    mutationFn: async (borrowingId: number) => {
-      // The backend expects bookCondition as a query param for return
-      return fetch(`${API_BASE}/api/borrowings/${borrowingId}/return?bookCondition=good`, {
-        method: "POST"
-      })
-        .then(res => res.json())
-        .catch(console.error);
+    mutationFn: async ({ borrowingId, bookCondition }: { borrowingId: number, bookCondition: string }) => {
+      return apiService.returnBook(borrowingId, bookCondition);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['borrowings'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
-      toast({ title: "Success", description: "Book returned successfully" });
+      setReturnForm({ borrowingId: "", bookCondition: "good" });
+      toast({ title: "Thành công", description: "Trả sách thành công" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to return book", variant: "destructive" });
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.error || error?.message || "Không thể trả sách";
+      toast({ 
+        title: "Lỗi", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     },
   });
-
-  const { data: activeBorrowings } = useQuery({
-    queryKey: ['borrowings', { type: 'active' }],
-    queryFn: () =>
-      fetch(`${API_BASE}/api/borrowings/current`).then(r => {
-        if (!r.ok) throw new Error('Failed to load active borrowings');
-        return r.json();
-      }).catch(console.error)
-  });
-
-  const { data: overdueBorrowings } = useQuery({
-    queryKey: ['borrowings', { type: 'overdue' }],
-    queryFn: () =>
-      fetch(`${API_BASE}/api/borrowings/overdue`).then(r => {
-        if (!r.ok) throw new Error('Failed to load overdue borrowings');
-        return r.json();
-      }).catch(console.error)
-  });
-
-  // Map backend fields to frontend camelCase
-  function mapBookApi(book: any): Book {
-    return {
-      ...book,
-      availableQuantity: book.availableQuantity ?? book.available_quantity,
-      publishYear: book.publishYear ?? book.publication_year,
-      // add more mappings as needed
-    };
-  }
-  function mapReaderApi(reader: any): Reader {
-    return {
-      ...reader,
-      registrationDate: reader.registrationDate ?? reader.registration_date,
-      expiryDate: reader.expiryDate ?? reader.expiry_date,
-      readerType: reader.readerType ?? reader.reader_type,
-      isActive: reader.isActive ?? (reader.status === 'ACTIVE' || reader.status === true),
-      // add more mappings as needed
-    };
-  }
-  function mapBorrowingApi(borrowing: any): BorrowingWithDetails {
-    return {
-      ...borrowing,
-      borrowDate: borrowing.borrowDate ?? borrowing.borrow_date,
-      dueDate: borrowing.dueDate ?? borrowing.due_date,
-      returnDate: borrowing.returnDate ?? borrowing.return_date,
-      bookTitle: borrowing.bookTitle ?? borrowing.book_title,
-      bookAuthor: borrowing.bookAuthor ?? borrowing.book_author,
-      readerName: borrowing.readerName ?? borrowing.reader_name,
-      readerEmail: borrowing.readerEmail ?? borrowing.reader_email,
-      // add more mappings as needed
-    };
-  }
-  const borrowingsArray = (Array.isArray(borrowings) ? borrowings : borrowings?.content || []).map(mapBorrowingApi);
-  const booksArray = (Array.isArray(books) ? books : books?.content || []).map(mapBookApi);
-  const readersArray = (Array.isArray(readers) ? readers : readers?.content || []).map(mapReaderApi);
-
-  const availableBooks = booksArray?.filter((book: Book) => book.availableQuantity > 0) || [];
-  const activeBooksForReturn: BorrowingWithDetails[] = Array.isArray(activeBorrowings) ? activeBorrowings : [];
-
-  // Initialize due date on first render
-  if (!borrowForm.dueDate && borrowForm.borrowDate) {
-    setBorrowForm(prev => ({ ...prev, dueDate: calculateDueDate(prev.borrowDate) }));
-  }
 
   // Utility to check if a borrowing is overdue (not returned and dueDate < now)
   function isBorrowingOverdue(borrowing: BorrowingWithDetails) {
@@ -199,6 +152,7 @@ export default function Borrowing() {
     return Math.ceil((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
   }
 
+  // Defensive: ensure dueDate is set before submit
   function handleBorrowSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!borrowForm.readerId || !borrowForm.bookId) {
@@ -209,33 +163,65 @@ export default function Borrowing() {
       });
       return;
     }
+    
+    // Validate dates
+    const borrowDate = new Date(borrowForm.borrowDate);
+    const dueDate = borrowForm.dueDate ? new Date(borrowForm.dueDate) : new Date(borrowForm.borrowDate);
+    dueDate.setDate(dueDate.getDate() + 30);
+    
+    if (dueDate <= borrowDate) {
+      toast({
+        title: "Lỗi",
+        description: "Ngày hẹn trả phải sau ngày mượn.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     createBorrowingMutation.mutate({
-      readerId: parseInt(borrowForm.readerId),
-      bookId: parseInt(borrowForm.bookId),
+      readerId: borrowForm.readerId,
+      bookId: borrowForm.bookId,
       borrowDate: borrowForm.borrowDate,
-      dueDate: borrowForm.dueDate,
-      status: "borrowed",
+      dueDate: dueDate.toISOString().split('T')[0],
     });
   }
 
-  // Add the missing handler
   const handleReturnSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!returnForm.borrowingId) return;
-    await fetch(`${API_BASE}/api/borrowings/${returnForm.borrowingId}/return?bookCondition=${encodeURIComponent(returnForm.condition)}`, {
-      method: 'POST'
+    if (!returnForm.borrowingId) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng chọn sách cần trả.",
+        variant: "destructive",
+      });
+      return;
+    }
+    returnBookMutation.mutate({
+      borrowingId: parseInt(returnForm.borrowingId),
+      bookCondition: returnForm.bookCondition,
     });
-    queryClient.invalidateQueries({ queryKey: ['borrowings'] });
-    queryClient.invalidateQueries({ queryKey: ['stats'] });
   };
 
-  // Defensive fallback for availableBooks and overdueBorrowings
-  const safeAvailableBooks = Array.isArray(availableBooks) ? availableBooks : [];
-  const safeOverdueBorrowings = Array.isArray(overdueBorrowings) ? overdueBorrowings : [];
+  function getBookConditionText(condition?: string): string {
+    switch (condition) {
+      case "good":
+        return "Tốt";
+      case "fair":
+        return "Khá";
+      case "damaged":
+        return "Hư hỏng nhẹ";
+      case "severely_damaged":
+        return "Hư hỏng nặng";
+      default:
+        return "Không rõ";
+    }
+  }
 
-  if (borrowingsLoading) {
+  // UI loading/error/empty states
+  if (borrowingsLoading || booksLoading || readersLoading || activeLoading || overdueLoading) {
     return (
       <div className="space-y-6">
+        <Skeleton className="h-8 w-1/2 mb-4" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i} className="animate-pulse">
@@ -250,17 +236,19 @@ export default function Borrowing() {
       </div>
     );
   }
-  if (borrowingsError) return <div className="p-4 bg-red-100 text-red-700 rounded mb-4">Lỗi: {borrowingsError.message}</div>;
+  if (borrowingsError || booksError || readersError || activeError || overdueError) {
+    return <div className="p-4 bg-red-100 text-red-700 rounded mb-4">Có lỗi xảy ra: {(borrowingsError || booksError || readersError || activeError || overdueError)?.message}</div>;
+  }
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="borrow" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="borrow" className="flex items-center space-x-2">
             <BookOpen className="w-4 h-4" />
             <span>Cho mượn</span>
           </TabsTrigger>
-          <TabsTrigger value="return" className="flex items-center space-x-2">
+          <TabsTrigger value="return" ref={returnTabRef} className="flex items-center space-x-2">
             <Undo className="w-4 h-4" />
             <span>Trả sách</span>
           </TabsTrigger>
@@ -304,15 +292,15 @@ export default function Borrowing() {
 
                   <div className="form-field">
                     <Label className="form-label">Sách *</Label>
-                    <Select 
-                      value={borrowForm.bookId} 
+                    <Select
+                      value={borrowForm.bookId}
                       onValueChange={(value) => setBorrowForm(prev => ({ ...prev, bookId: value }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Chọn sách..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {safeAvailableBooks.map((book: Book) => (
+                        {booksArray.map((book: Book) => (
                           <SelectItem key={book.id} value={book.id.toString()}>
                             {book.title} - {book.author} (Còn: {book.availableQuantity})
                           </SelectItem>
@@ -376,15 +364,15 @@ export default function Borrowing() {
                 <div className="space-y-2">
                   <h4 className="font-medium">Sách có sẵn</h4>
                   <div className="max-h-48 overflow-y-auto space-y-1">
-                    {safeAvailableBooks.slice(0, 5).map((book: Book) => (
+                    {booksArray.filter((book: Book) => book.availableQuantity > 0).slice(0, 5).map((book: Book) => (
                       <div key={book.id} className="flex justify-between text-sm">
                         <span className="truncate">{book.title}</span>
                         <span className="text-slate-500">{book.availableQuantity}</span>
                       </div>
                     ))}
-                    {safeAvailableBooks.length > 5 && (
+                    {booksArray.filter((book: Book) => book.availableQuantity > 0).length > 5 && (
                       <p className="text-xs text-slate-500">
-                        ...và {safeAvailableBooks.length - 5} sách khác
+                        ...và {booksArray.filter((book: Book) => book.availableQuantity > 0).length - 5} sách khác
                       </p>
                     )}
                   </div>
@@ -415,7 +403,7 @@ export default function Borrowing() {
                       <SelectContent>
                         {activeBooksForReturn.map((borrowing: BorrowingWithDetails) => (
                           <SelectItem key={borrowing.id} value={borrowing.id.toString()}>
-                            {borrowing.bookTitle} - {borrowing.readerName}
+                            {borrowing.book?.title} - {borrowing.reader?.name}
                             {isBorrowingOverdue(borrowing) && " (QUÁ HẠN)"}
                           </SelectItem>
                         ))}
@@ -435,11 +423,11 @@ export default function Borrowing() {
                           <>
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-600">Tên sách:</span>
-                              <span className="font-medium">{selectedBorrowing.bookTitle}</span>
+                              <span className="font-medium">{selectedBorrowing.book?.title}</span>
                             </div>
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-600">Độc giả:</span>
-                              <span className="font-medium">{selectedBorrowing.readerName}</span>
+                              <span className="font-medium">{selectedBorrowing.reader?.name}</span>
                             </div>
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-600">Ngày mượn:</span>
@@ -461,8 +449,8 @@ export default function Borrowing() {
                   <div className="form-field">
                     <Label className="form-label">Tình trạng sách khi trả</Label>
                     <Select 
-                      value={returnForm.condition} 
-                      onValueChange={(value) => setReturnForm(prev => ({ ...prev, condition: value }))}
+                      value={returnForm.bookCondition} 
+                      onValueChange={(value) => setReturnForm(prev => ({ ...prev, bookCondition: value }))}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -496,8 +484,8 @@ export default function Borrowing() {
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {activeBooksForReturn?.slice(0, 10).map((borrowing: BorrowingWithDetails) => (
                     <div key={borrowing.id} className="border rounded-lg p-3">
-                      <div className="font-medium text-sm">{borrowing.bookTitle}</div>
-                      <div className="text-xs text-slate-600">{borrowing.readerName}</div>
+                      <div className="font-medium text-sm">{borrowing.book?.title}</div>
+                      <div className="text-xs text-slate-600">{borrowing.reader?.name}</div>
                       <div className="flex justify-between items-center mt-2">
                         <span className="text-xs text-slate-500">
                           Hạn: {borrowing.dueDate ? formatDate(borrowing.dueDate) : '-'}
@@ -544,12 +532,12 @@ export default function Borrowing() {
                       {safeOverdueBorrowings.map((borrowing: BorrowingWithDetails) => (
                         <tr key={borrowing.id} className="table-hover">
                           <td className="py-3 px-4">
-                            <div className="font-medium">{borrowing.bookTitle}</div>
-                            <div className="text-sm text-slate-500">{borrowing.bookAuthor}</div>
+                            <div className="font-medium">{borrowing.book?.title}</div>
+                            <div className="text-sm text-slate-500">{borrowing.book?.author}</div>
                           </td>
                           <td className="py-3 px-4">
-                            <div>{borrowing.readerName}</div>
-                            <div className="text-sm text-slate-500">{borrowing.readerEmail}</div>
+                            <div>{borrowing.reader?.name}</div>
+                            <div className="text-sm text-slate-500">{borrowing.reader?.email}</div>
                           </td>
                           <td className="py-3 px-4">{borrowing.borrowDate ? formatDate(borrowing.borrowDate) : '-'}</td>
                           <td className="py-3 px-4 text-red-600">{borrowing.dueDate ? formatDate(borrowing.dueDate) : '-'}</td>
@@ -567,6 +555,7 @@ export default function Borrowing() {
                                 className="btn-success"
                                 onClick={() => {
                                   setReturnForm(prev => ({ ...prev, borrowingId: borrowing.id.toString() }));
+                                  setActiveTab("return");
                                 }}
                               >
                                 <Undo className="w-3 h-3 mr-1" />
@@ -595,18 +584,12 @@ export default function Borrowing() {
               <CardTitle>Lịch sử mượn/trả</CardTitle>
             </CardHeader>
             <CardContent>
-              {borrowingsLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <div key={index} className="flex space-x-4">
-                      <Skeleton className="h-4 w-48" />
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-4 w-24" />
-                      <Skeleton className="h-4 w-20" />
-                    </div>
-                  ))}
+              {borrowingsArray.length === 0 ? (
+                <div className="text-center py-12 text-slate-500">
+                  <History className="w-12 h-12 mx-auto mb-4" />
+                  <p>Chưa có lịch sử mượn/trả nào</p>
                 </div>
-              ) : borrowingsArray.length > 0 ? (
+              ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-slate-50 border-b border-slate-200">
@@ -618,6 +601,7 @@ export default function Borrowing() {
                         <th className="text-left py-3 px-4 font-medium text-slate-700">Hạn trả</th>
                         <th className="text-left py-3 px-4 font-medium text-slate-700">Ngày trả</th>
                         <th className="text-left py-3 px-4 font-medium text-slate-700">Trạng thái</th>
+                        <th className="text-left py-3 px-4 font-medium text-slate-700">Tình trạng</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
@@ -625,12 +609,12 @@ export default function Borrowing() {
                         <tr key={borrowing.id} className="table-hover">
                           <td className="py-3 px-4">BR{borrowing.id.toString().padStart(3, '0')}</td>
                           <td className="py-3 px-4">
-                            <div className="font-medium">{borrowing.bookTitle}</div>
-                            <div className="text-sm text-slate-500">{borrowing.bookAuthor}</div>
+                            <div className="font-medium">{borrowing.book?.title}</div>
+                            <div className="text-sm text-slate-500">{borrowing.book?.author}</div>
                           </td>
                           <td className="py-3 px-4">
-                            <div>{borrowing.readerName}</div>
-                            <div className="text-sm text-slate-500">{borrowing.readerEmail}</div>
+                            <div>{borrowing.reader?.name}</div>
+                            <div className="text-sm text-slate-500">{borrowing.reader?.email}</div>
                           </td>
                           <td className="py-3 px-4">{borrowing.borrowDate ? formatDate(borrowing.borrowDate) : '-'}</td>
                           <td className="py-3 px-4">{borrowing.dueDate ? formatDate(borrowing.dueDate) : '-'}</td>
@@ -640,15 +624,15 @@ export default function Borrowing() {
                               {getStatusText(borrowing.status)}
                             </Badge>
                           </td>
+                          <td className="py-3 px-4">
+                            <span className="text-sm text-slate-600">
+                              {getBookConditionText(borrowing.bookCondition)}
+                            </span>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-slate-500">
-                  <History className="w-12 h-12 mx-auto mb-4" />
-                  <p>Chưa có lịch sử mượn/trả nào</p>
                 </div>
               )}
             </CardContent>

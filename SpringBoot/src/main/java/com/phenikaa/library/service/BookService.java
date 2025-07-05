@@ -1,5 +1,7 @@
 package com.phenikaa.library.service;
 
+import com.phenikaa.library.exception.BusinessLogicException;
+import com.phenikaa.library.exception.ResourceNotFoundException;
 import com.phenikaa.library.model.Book;
 import com.phenikaa.library.repository.BookRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,11 +42,10 @@ public class BookService {
                 book.setIsbn(bookDetails.getIsbn());
                 book.setCategory(bookDetails.getCategory());
                 book.setPublisher(bookDetails.getPublisher());
-                book.setPublicationYear(bookDetails.getPublicationYear());
+                book.setPublishYear(bookDetails.getPublishYear());
                 book.setQuantity(bookDetails.getQuantity());
                 book.setDescription(bookDetails.getDescription());
-                book.setShelfLocation(bookDetails.getShelfLocation());
-                book.setStatus(bookDetails.getStatus());
+                // book.setShelfLocation(bookDetails.getShelfLocation());
                 
                 // Cập nhật số lượng có sẵn nếu cần
                 if (book.getAvailableQuantity() > bookDetails.getQuantity()) {
@@ -53,16 +54,16 @@ public class BookService {
                 
                 return bookRepository.save(book);
             })
-            .orElseThrow(() -> new RuntimeException("Không tìm thấy sách với ID: " + id));
+            .orElseThrow(() -> new ResourceNotFoundException("Sách", "ID", id));
     }
     
     public void deleteBook(Long id) {
         Book book = bookRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Không tìm thấy sách với ID: " + id));
+            .orElseThrow(() -> new ResourceNotFoundException("Sách", "ID", id));
         
         // Kiểm tra xem sách có đang được mượn không
         if (book.getAvailableQuantity() < book.getQuantity()) {
-            throw new RuntimeException("Không thể xóa sách đang được mượn");
+            throw new BusinessLogicException("Không thể xóa sách đang được mượn");
         }
         
         bookRepository.delete(book);
@@ -94,9 +95,9 @@ public class BookService {
         return bookRepository.findByAvailableQuantityGreaterThan(0);
     }
     
-    public List<Book> getBooksByStatus(Book.BookStatus status) {
-        return bookRepository.findByStatus(status);
-    }
+    // public List<Book> getBooksByStatus(Book.BookStatus status) {
+    //     return bookRepository.findByStatus(status);
+    // }
     
     public List<String> getAllCategories() {
         return bookRepository.findAllCategories();
@@ -156,28 +157,53 @@ public class BookService {
     // Business methods for borrowing
     @Transactional
     public boolean borrowBook(Long bookId) {
-        Optional<Book> bookOpt = bookRepository.findById(bookId);
-        if (bookOpt.isPresent()) {
-            Book book = bookOpt.get();
-            if (book.isAvailable()) {
-                book.borrowBook();
-                bookRepository.save(book);
-                return true;
+        try {
+            Optional<Book> bookOpt = bookRepository.findById(bookId);
+            if (bookOpt.isPresent()) {
+                Book book = bookOpt.get();
+                if (book.isAvailable()) {
+                    book.borrowBook();
+                    bookRepository.save(book);
+                    System.out.println("Book borrowed successfully: " + bookId + ", available: " + book.getAvailableQuantity());
+                    return true;
+                } else {
+                    System.err.println("Book not available: " + bookId + ", available: " + book.getAvailableQuantity());
+                }
+            } else {
+                System.err.println("Book not found: " + bookId);
             }
+            return false;
+        } catch (Exception e) {
+            System.err.println("Error borrowing book: " + e.getMessage());
+            e.printStackTrace();
+            return false;
         }
-        return false;
     }
     
     @Transactional
     public boolean returnBook(Long bookId) {
-        Optional<Book> bookOpt = bookRepository.findById(bookId);
-        if (bookOpt.isPresent()) {
-            Book book = bookOpt.get();
-            book.returnBook();
-            bookRepository.save(book);
-            return true;
+        try {
+            Optional<Book> bookOpt = bookRepository.findById(bookId);
+            if (bookOpt.isPresent()) {
+                Book book = bookOpt.get();
+                book.returnBook();
+                bookRepository.save(book);
+                System.out.println("Book returned successfully: " + bookId + ", available: " + book.getAvailableQuantity());
+                return true;
+            } else {
+                System.err.println("Book not found: " + bookId);
+            }
+            return false;
+        } catch (Exception e) {
+            System.err.println("Error returning book: " + e.getMessage());
+            e.printStackTrace();
+            return false;
         }
-        return false;
+    }
+    
+    public boolean isBookAvailable(Long bookId) {
+        Optional<Book> bookOpt = bookRepository.findById(bookId);
+        return bookOpt.map(Book::isAvailable).orElse(false);
     }
 
     public List<Book> advancedSearch(String title, String author, String category, String isbn) {
@@ -187,5 +213,9 @@ public class BookService {
             category != null ? category : "",
             isbn != null ? isbn : ""
         );
+    }
+
+    public Page<Book> getAllBooks(Pageable pageable) {
+        return bookRepository.findAll(pageable);
     }
 }
