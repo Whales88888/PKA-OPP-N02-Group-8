@@ -1,5 +1,7 @@
 package com.phenikaa.library.service;
 
+import com.phenikaa.library.exception.BusinessLogicException;
+import com.phenikaa.library.exception.ResourceNotFoundException;
 import com.phenikaa.library.model.Borrowing;
 import com.phenikaa.library.model.Book;
 import com.phenikaa.library.model.Reader;
@@ -34,9 +36,6 @@ public class BorrowingService {
     private BookService bookService;
     
     @Autowired
-    private ReaderService readerService;
-    
-    @Autowired
     private NotificationService notificationService;
     
     // CRUD Operations
@@ -49,87 +48,140 @@ public class BorrowingService {
     }
     
     @Transactional
-    public Borrowing createBorrowing(Long bookId, Long readerId, Librarian processedBy) {
-        // Kiểm tra sách
-        Book book = bookRepository.findById(bookId)
-            .orElseThrow(() -> new RuntimeException("Không tìm thấy sách với ID: " + bookId));
-        
-        // Kiểm tra độc giả
-        Reader reader = readerRepository.findById(readerId)
-            .orElseThrow(() -> new RuntimeException("Không tìm thấy độc giả với ID: " + readerId));
-        
-        // Validate business rules
-        validateBorrowing(book, reader);
-        
-        // Tạo giao dịch mượn
-        Borrowing borrowing = new Borrowing();
-        borrowing.setBook(book);
-        borrowing.setReader(reader);
-        borrowing.setBorrowDate(LocalDate.now());
-        borrowing.setDueDate(LocalDate.now().plusDays(14)); // Mặc định 14 ngày
-        borrowing.setStatus(Borrowing.BorrowStatus.BORROWED);
-        borrowing.setProcessedBy(processedBy);
-        borrowing.setBookConditionBorrowed("Tốt");
-        
-        // Cập nhật số lượng sách và độc giả
-        bookService.borrowBook(bookId);
-        readerService.borrowBook(readerId);
-        
-        Borrowing savedBorrowing = borrowingRepository.save(borrowing);
-        
-        // Tạo thông báo
-        notificationService.createBorrowingNotification(savedBorrowing, "BORROWED");
-        
-        return savedBorrowing;
+    public Borrowing createBorrowing(Long bookId, Long readerId, LocalDate borrowDate, LocalDate dueDate) {
+        try {
+            System.out.println("Creating borrowing - bookId: " + bookId + ", readerId: " + readerId + ", borrowDate: " + borrowDate + ", dueDate: " + dueDate);
+            
+            // Validate input parameters
+            if (bookId == null || readerId == null) {
+                throw new BusinessLogicException("ID sách và độc giả không được để trống");
+            }
+            
+            Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new ResourceNotFoundException("Sách", "ID", bookId));
+            Reader reader = readerRepository.findById(readerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Độc giả", "ID", readerId));
+            
+            System.out.println("Found book: " + book.getTitle() + ", available: " + book.getAvailableQuantity());
+            System.out.println("Found reader: " + reader.getName() + ", active: " + reader.getIsActive());
+            
+            // Validate borrowing
+            validateBorrowing(book, reader);
+            
+            // Set default dates if not provided
+            LocalDate actualBorrowDate = borrowDate != null ? borrowDate : LocalDate.now();
+            LocalDate actualDueDate = dueDate != null ? dueDate : actualBorrowDate.plusDays(30);
+            
+            // Validate dates
+            if (actualDueDate.isBefore(actualBorrowDate)) {
+                throw new BusinessLogicException("Ngày hẹn trả phải sau ngày mượn");
+            }
+            
+            Borrowing borrowing = new Borrowing();
+            borrowing.setBook(book);
+            borrowing.setReader(reader);
+            borrowing.setBorrowDate(actualBorrowDate);
+            borrowing.setDueDate(actualDueDate);
+            borrowing.setStatus("borrowed");
+            borrowing.setBookCondition("good");
+            
+            System.out.println("Updating book availability for book: " + bookId);
+            
+            // Update book availability
+            if (!bookService.borrowBook(bookId)) {
+                throw new BusinessLogicException("Sách không có sẵn để mượn");
+            }
+            
+            Borrowing savedBorrowing = borrowingRepository.save(borrowing);
+            System.out.println("Borrowing created successfully: " + savedBorrowing.getId());
+            
+            try {
+                notificationService.createBorrowingNotification(savedBorrowing, "BORROWED");
+            } catch (Exception e) {
+                // Log error but don't fail the borrowing operation
+                System.err.println("Failed to create notification: " + e.getMessage());
+            }
+            
+            return savedBorrowing;
+        } catch (BusinessLogicException | ResourceNotFoundException e) {
+            // Re-throw business exceptions
+            throw e;
+        } catch (Exception e) {
+            System.err.println("Error in createBorrowing: " + e.getMessage());
+            e.printStackTrace();
+            throw new BusinessLogicException("Không thể tạo giao dịch mượn sách: " + e.getMessage());
+        }
     }
     
     @Transactional
-    public Borrowing returnBook(Long borrowingId, String bookCondition, Librarian processedBy) {
-        Borrowing borrowing = borrowingRepository.findById(borrowingId)
-            .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch mượn với ID: " + borrowingId));
-        
-        if (borrowing.getStatus() != Borrowing.BorrowStatus.BORROWED) {
-            throw new RuntimeException("Sách đã được trả hoặc có trạng thái không hợp lệ");
+    public Borrowing returnBook(Long borrowingId, String bookCondition) {
+        try {
+            System.out.println("Returning borrowing: " + borrowingId + ", condition: " + bookCondition);
+            
+            // Validate input parameters
+            if (borrowingId == null) {
+                throw new BusinessLogicException("ID giao dịch mượn không được để trống");
+            }
+            
+            Borrowing borrowing = borrowingRepository.findById(borrowingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Giao dịch mượn", "ID", borrowingId));
+            
+            System.out.println("Found borrowing: " + borrowing.getId() + ", status: " + borrowing.getStatus());
+            
+            if (!"borrowed".equals(borrowing.getStatus())) {
+                throw new BusinessLogicException("Sách đã được trả hoặc có trạng thái không hợp lệ");
+            }
+            
+            borrowing.setReturnDate(LocalDate.now());
+            borrowing.setBookCondition(bookCondition != null ? bookCondition : "good");
+            borrowing.setStatus("returned");
+            
+            System.out.println("Updating book availability for book: " + borrowing.getBook().getId());
+            
+            // Update book availability
+            if (!bookService.returnBook(borrowing.getBook().getId())) {
+                throw new BusinessLogicException("Không thể cập nhật trạng thái sách");
+            }
+            
+            Borrowing savedBorrowing = borrowingRepository.save(borrowing);
+            System.out.println("Borrowing saved successfully: " + savedBorrowing.getId());
+            
+            try {
+                notificationService.createBorrowingNotification(savedBorrowing, "RETURNED");
+            } catch (Exception e) {
+                // Log error but don't fail the return operation
+                System.err.println("Failed to create notification: " + e.getMessage());
+            }
+            
+            return savedBorrowing;
+        } catch (BusinessLogicException | ResourceNotFoundException e) {
+            // Re-throw business exceptions
+            throw e;
+        } catch (Exception e) {
+            System.err.println("Error in returnBook: " + e.getMessage());
+            e.printStackTrace();
+            throw new BusinessLogicException("Không thể trả sách: " + e.getMessage());
         }
-        
-        // Cập nhật thông tin trả sách
-        borrowing.setReturnDate(LocalDate.now());
-        borrowing.setBookConditionReturned(bookCondition);
-        borrowing.setStatus(Borrowing.BorrowStatus.RETURNED);
-        borrowing.setProcessedBy(processedBy);
-        
-        // Tính phạt nếu trả muộn
-        if (borrowing.isOverdue()) {
-            double fine = borrowing.calculateFine();
-            borrowing.setFineAmount(fine);
-        }
-        
-        // Cập nhật số lượng sách và độc giả
-        bookService.returnBook(borrowing.getBook().getId());
-        readerService.returnBook(borrowing.getReader().getId());
-        
-        Borrowing savedBorrowing = borrowingRepository.save(borrowing);
-        
-        // Tạo thông báo
-        notificationService.createBorrowingNotification(savedBorrowing, "RETURNED");
-        
-        return savedBorrowing;
     }
     
     @Transactional
     public Borrowing renewBorrowing(Long borrowingId, int additionalDays) {
         Borrowing borrowing = borrowingRepository.findById(borrowingId)
-            .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch mượn với ID: " + borrowingId));
+            .orElseThrow(() -> new ResourceNotFoundException("Giao dịch mượn", "ID", borrowingId));
         
         if (!borrowing.canRenew()) {
-            throw new RuntimeException("Không thể gia hạn giao dịch này");
+            throw new BusinessLogicException("Không thể gia hạn giao dịch này");
         }
         
         borrowing.renewBorrowing(additionalDays);
         Borrowing savedBorrowing = borrowingRepository.save(borrowing);
         
-        // Tạo thông báo
-        notificationService.createBorrowingNotification(savedBorrowing, "RENEWED");
+        try {
+            notificationService.createBorrowingNotification(savedBorrowing, "RENEWED");
+        } catch (Exception e) {
+            // Log error but don't fail the renew operation
+            System.err.println("Failed to create notification: " + e.getMessage());
+        }
         
         return savedBorrowing;
     }
@@ -143,7 +195,7 @@ public class BorrowingService {
         return borrowingRepository.findByBook(book);
     }
     
-    public List<Borrowing> getBorrowingsByStatus(Borrowing.BorrowStatus status) {
+    public List<Borrowing> getBorrowingsByStatus(String status) {
         return borrowingRepository.findByStatus(status);
     }
     
@@ -160,7 +212,7 @@ public class BorrowingService {
         return borrowingRepository.findBorrowingsDueSoon(endDate);
     }
     
-    public Page<Borrowing> searchBorrowings(Long readerId, Long bookId, Borrowing.BorrowStatus status,
+    public Page<Borrowing> searchBorrowings(Long readerId, Long bookId, String status,
                                           LocalDate startDate, LocalDate endDate, Pageable pageable) {
         return borrowingRepository.searchBorrowings(readerId, bookId, status, startDate, endDate, pageable);
     }
@@ -190,59 +242,31 @@ public class BorrowingService {
         return borrowingRepository.findRecentBorrowings(Pageable.ofSize(limit));
     }
     
+    public Page<Borrowing> getAllBorrowings(Pageable pageable) {
+        return borrowingRepository.findAll(pageable);
+    }
+    
     // Validation
     private void validateBorrowing(Book book, Reader reader) {
-        // Kiểm tra sách có sẵn không
+        System.out.println("Validating borrowing - book available: " + book.isAvailable() + ", reader active: " + reader.getIsActive());
+        
+        if (book == null) {
+            throw new BusinessLogicException("Sách không tồn tại");
+        }
+        
+        if (reader == null) {
+            throw new BusinessLogicException("Độc giả không tồn tại");
+        }
+        
         if (!book.isAvailable()) {
-            throw new RuntimeException("Sách không có sẵn để mượn");
+            throw new BusinessLogicException("Sách không có sẵn để mượn (còn lại: " + book.getAvailableQuantity() + " cuốn)");
         }
         
-        // Kiểm tra độc giả có thể mượn sách không
-        if (!reader.canBorrowBooks()) {
-            throw new RuntimeException("Độc giả không thể mượn sách (đã hết hạn hoặc đạt giới hạn)");
+        if (!reader.getIsActive()) {
+            throw new BusinessLogicException("Độc giả không hợp lệ hoặc đã bị khóa");
         }
         
-        // Kiểm tra độc giả đã mượn sách này chưa
-        if (borrowingRepository.isBookCurrentlyBorrowedByReader(reader, book)) {
-            throw new RuntimeException("Độc giả đã mượn sách này rồi");
-        }
+        // Note: Borrowing limit validation removed as Reader entity doesn't have maxBorrowBooks field
+        // This can be added later when the Reader entity is enhanced with borrowing limits
     }
-    
-    // Business Logic Methods
-    public boolean isBookAvailableForBorrowing(Long bookId) {
-        return bookRepository.findById(bookId)
-            .map(Book::isAvailable)
-            .orElse(false);
-    }
-    
-    public boolean canReaderBorrowMoreBooks(Long readerId) {
-        return readerRepository.findById(readerId)
-            .map(Reader::canBorrowBooks)
-            .orElse(false);
-    }
-    
-    public Integer getCurrentBorrowingCountByReader(Long readerId) {
-        Reader reader = readerRepository.findById(readerId)
-            .orElseThrow(() -> new RuntimeException("Không tìm thấy độc giả"));
-        return borrowingRepository.countCurrentBorrowingsByReader(reader);
-    }
-    
-    @Transactional
-    public void processOverdueNotifications() {
-        List<Borrowing> overdueBorrowings = getOverdueBorrowings();
-        for (Borrowing borrowing : overdueBorrowings) {
-            notificationService.createOverdueNotification(borrowing);
-        }
-    }
-    
-    @Transactional
-    public void processDueSoonNotifications(int days) {
-        List<Borrowing> dueSoonBorrowings = getBorrowingsDueSoon(days);
-        for (Borrowing borrowing : dueSoonBorrowings) {
-            notificationService.createDueSoonNotification(borrowing);
-        }
-    }
-    
-    public ReaderService getReaderService() { return readerService; }
-    public BookService getBookService() { return bookService; }
 }

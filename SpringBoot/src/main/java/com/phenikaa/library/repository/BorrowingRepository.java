@@ -23,18 +23,18 @@ public interface BorrowingRepository extends JpaRepository<Borrowing, Long> {
     List<Borrowing> findByBook(Book book);
     
     // Tìm kiếm theo trạng thái
-    List<Borrowing> findByStatus(Borrowing.BorrowStatus status);
+    List<Borrowing> findByStatus(String status);
     
     // Tìm kiếm giao dịch đang mượn
-    @Query("SELECT b FROM Borrowing b WHERE b.status = 'BORROWED'")
+    @Query("SELECT b FROM Borrowing b JOIN FETCH b.book JOIN FETCH b.reader WHERE b.status = 'borrowed'")
     List<Borrowing> findCurrentBorrowings();
     
     // Tìm kiếm giao dịch quá hạn
-    @Query("SELECT b FROM Borrowing b WHERE b.status = 'BORROWED' AND b.dueDate < CURRENT_DATE")
+    @Query("SELECT b FROM Borrowing b JOIN FETCH b.book JOIN FETCH b.reader WHERE b.status = 'borrowed' AND b.dueDate < CURRENT_DATE")
     List<Borrowing> findOverdueBorrowings();
     
     // Tìm kiếm giao dịch sắp hết hạn
-    @Query("SELECT b FROM Borrowing b WHERE b.status = 'BORROWED' AND b.dueDate BETWEEN CURRENT_DATE AND :endDate")
+    @Query("SELECT b FROM Borrowing b JOIN FETCH b.book JOIN FETCH b.reader WHERE b.status = 'borrowed' AND b.dueDate BETWEEN CURRENT_DATE AND :endDate")
     List<Borrowing> findBorrowingsDueSoon(@Param("endDate") LocalDate endDate);
     
     // Tìm kiếm theo khoảng thời gian mượn
@@ -44,19 +44,19 @@ public interface BorrowingRepository extends JpaRepository<Borrowing, Long> {
     List<Borrowing> findByReturnDateBetween(LocalDate startDate, LocalDate endDate);
     
     // Tìm kiếm giao dịch của độc giả theo trạng thái
-    List<Borrowing> findByReaderAndStatus(Reader reader, Borrowing.BorrowStatus status);
+    List<Borrowing> findByReaderAndStatus(Reader reader, String status);
     
     // Tìm kiếm giao dịch của sách theo trạng thái
-    List<Borrowing> findByBookAndStatus(Book book, Borrowing.BorrowStatus status);
+    List<Borrowing> findByBookAndStatus(Book book, String status);
     
     // Thống kê giao dịch
     @Query("SELECT COUNT(b) FROM Borrowing b")
     Long countTotalBorrowings();
     
-    @Query("SELECT COUNT(b) FROM Borrowing b WHERE b.status = 'BORROWED'")
+    @Query("SELECT COUNT(b) FROM Borrowing b WHERE b.status = 'borrowed'")
     Long countCurrentBorrowings();
     
-    @Query("SELECT COUNT(b) FROM Borrowing b WHERE b.status = 'BORROWED' AND b.dueDate < CURRENT_DATE")
+    @Query("SELECT COUNT(b) FROM Borrowing b WHERE b.status = 'borrowed' AND b.dueDate < CURRENT_DATE")
     Long countOverdueBorrowings();
     
     @Query("SELECT COUNT(b) FROM Borrowing b WHERE b.returnDate IS NOT NULL")
@@ -75,11 +75,11 @@ public interface BorrowingRepository extends JpaRepository<Borrowing, Long> {
     List<Object[]> findMostActiveReaders(Pageable pageable);
     
     // Kiểm tra độc giả có đang mượn sách cụ thể không
-    @Query("SELECT COUNT(b) > 0 FROM Borrowing b WHERE b.reader = :reader AND b.book = :book AND b.status = 'BORROWED'")
+    @Query("SELECT COUNT(b) > 0 FROM Borrowing b WHERE b.reader = :reader AND b.book = :book AND b.status = 'borrowed'")
     boolean isBookCurrentlyBorrowedByReader(@Param("reader") Reader reader, @Param("book") Book book);
     
     // Đếm số sách đang mượn của độc giả
-    @Query("SELECT COUNT(b) FROM Borrowing b WHERE b.reader = :reader AND b.status = 'BORROWED'")
+    @Query("SELECT COUNT(b) FROM Borrowing b WHERE b.reader = :reader AND b.status = 'borrowed'")
     Integer countCurrentBorrowingsByReader(@Param("reader") Reader reader);
     
     // Tìm kiếm tổng hợp với phân trang
@@ -91,7 +91,7 @@ public interface BorrowingRepository extends JpaRepository<Borrowing, Long> {
            "(:endDate IS NULL OR b.borrowDate <= :endDate)")
     Page<Borrowing> searchBorrowings(@Param("readerId") Long readerId,
                                    @Param("bookId") Long bookId,
-                                   @Param("status") Borrowing.BorrowStatus status,
+                                   @Param("status") String status,
                                    @Param("startDate") LocalDate startDate,
                                    @Param("endDate") LocalDate endDate,
                                    Pageable pageable);

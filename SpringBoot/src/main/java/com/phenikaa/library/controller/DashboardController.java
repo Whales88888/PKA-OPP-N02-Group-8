@@ -40,7 +40,6 @@ public class DashboardController {
         stats.setBorrowedBooks(bookService.getBorrowedBooksCount());
         stats.setTotalReaders(readerService.getTotalReadersCount());
         stats.setActiveReaders(readerService.getActiveReadersCount());
-        stats.setReadersWithBorrowedBooks(readerService.getReadersWithBorrowedBooksCount());
         stats.setTotalBorrowings(borrowingService.getTotalBorrowingsCount());
         stats.setCurrentBorrowings(borrowingService.getCurrentBorrowingsCount());
         stats.setOverdueBorrowings(borrowingService.getOverdueBorrowingsCount());

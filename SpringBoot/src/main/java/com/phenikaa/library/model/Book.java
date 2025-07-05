@@ -1,5 +1,7 @@
 package com.phenikaa.library.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -10,6 +12,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "books")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "borrowings"})
 public class Book {
     
     @Id
@@ -33,8 +36,8 @@ public class Book {
     
     private String publisher;
     
-    @Column(name = "publication_year")
-    private Integer publicationYear;
+    @Column(name = "publish_year")
+    private Integer publishYear;
     
     @NotNull(message = "Số lượng không được để trống")
     @Min(value = 0, message = "Số lượng không được âm")
@@ -46,39 +49,25 @@ public class Book {
     
     private String description;
     
-    @Column(name = "shelf_location")
-    private String shelfLocation;
-    
-    @Enumerated(EnumType.STRING)
-    private BookStatus status = BookStatus.AVAILABLE;
-    
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-    
     // Quan hệ với Borrowing
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
     private List<Borrowing> borrowings;
     
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
         if (availableQuantity == null) {
             availableQuantity = quantity;
         }
     }
     
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
-    
     // Business methods
     public boolean isAvailable() {
-        return availableQuantity > 0 && status == BookStatus.AVAILABLE;
+        return availableQuantity > 0;
     }
     
     public void borrowBook() {
@@ -90,23 +79,6 @@ public class Book {
     public void returnBook() {
         if (availableQuantity < quantity) {
             availableQuantity++;
-        }
-    }
-    
-    public enum BookStatus {
-        AVAILABLE("Có sẵn"),
-        BORROWED("Đã mượn"),
-        MAINTENANCE("Bảo trì"),
-        LOST("Mất sách");
-        
-        private final String displayName;
-        
-        BookStatus(String displayName) {
-            this.displayName = displayName;
-        }
-        
-        public String getDisplayName() {
-            return displayName;
         }
     }
 
@@ -158,12 +130,12 @@ public class Book {
         this.publisher = publisher;
     }
 
-    public Integer getPublicationYear() {
-        return publicationYear;
+    public Integer getPublishYear() {
+        return publishYear;
     }
 
-    public void setPublicationYear(Integer publicationYear) {
-        this.publicationYear = publicationYear;
+    public void setPublishYear(Integer publishYear) {
+        this.publishYear = publishYear;
     }
 
     public Integer getQuantity() {
@@ -190,36 +162,12 @@ public class Book {
         this.description = description;
     }
 
-    public String getShelfLocation() {
-        return shelfLocation;
-    }
-
-    public void setShelfLocation(String shelfLocation) {
-        this.shelfLocation = shelfLocation;
-    }
-
-    public BookStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(BookStatus status) {
-        this.status = status;
-    }
-
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
     }
 
     public List<Borrowing> getBorrowings() {

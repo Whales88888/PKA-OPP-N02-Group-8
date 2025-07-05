@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
@@ -13,32 +14,47 @@ import {
   BookOpen,
   UserPlus
 } from "lucide-react";
-import type { DashboardStats } from "@shared/schema";
-import { API_BASE } from "@/config/api";
+import { DashboardStats, RecentActivities } from "../types";
+import { apiService } from "../services/api";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const { data: stats, error, isLoading } = useQuery({
-    queryKey: ['stats'],
-    queryFn: () =>
-      fetch(`${API_BASE}/dashboard/api/dashboard/stats`).then(r => {
-        if (!r.ok) throw new Error('Failed to load stats');
-        return r.json();
-      }).catch(console.error)
+  const { data: stats, error, isLoading, refetch: refetchStats } = useQuery({
+    queryKey: ['stats', refreshKey],
+    queryFn: () => apiService.getDashboardStats(),
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
-  const { data: recentBorrowings } = useQuery({
-    queryKey: ["recent-activities"],
-    queryFn: () =>
-      fetch(`${API_BASE}/dashboard/api/dashboard/recent-activities`).then(r => {
-        if (!r.ok) throw new Error('Failed to load recent activities');
-        return r.json();
-      }).catch(console.error)
+  const { data: recentActivities, refetch: refetchActivities } = useQuery({
+    queryKey: ["recent-activities", refreshKey],
+    queryFn: () => apiService.getRecentActivities(),
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
+
+  // Manually refetch and update refreshKey when navigating to Dashboard
+  const [location] = useLocation();
+  useEffect(() => {
+    if (location === "/" || location === "/dashboard") {
+      if (localStorage.getItem('dashboardNeedsRefresh') === '1') {
+        refetchStats();
+        refetchActivities();
+        localStorage.removeItem('dashboardNeedsRefresh');
+      }
+      setTimeout(() => {
+        setRefreshKey((k) => k + 1);
+      }, 200); // 200ms delay to ensure backend commit
+    }
+  }, [location]);
 
   // Always use an array for rendering recent activities
-  const recentBorrowingsArray = Array.isArray(recentBorrowings?.recentBorrowings) ? recentBorrowings.recentBorrowings : [];
+  const recentBorrowingsArray = Array.isArray(recentActivities?.recentBorrowings) ? recentActivities.recentBorrowings : [];
 
   if (isLoading) {
     return (
@@ -212,34 +228,6 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
-
-      {/* Overdue Books Alert */}
-      {stats && stats.overdueBorrowings > 0 && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-6">
-            <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-              </div>
-              <div className="flex-1">
-                <h4 className="text-lg font-semibold text-red-800 mb-2">
-                  Sách sắp đến hạn trả
-                </h4>
-                <p className="text-red-700 mb-4">
-                  Có {stats.overdueBorrowings} cuốn sách đã quá hạn trả. 
-                  Hãy thông báo cho độc giả để trả sách.
-                </p>
-                <Button 
-                  className="btn-danger"
-                  onClick={() => setLocation("/borrowing?tab=overdue")}
-                >
-                  Xem chi tiết
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

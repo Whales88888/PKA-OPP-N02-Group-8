@@ -1,5 +1,7 @@
 package com.phenikaa.library.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -12,6 +14,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "librarians")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -69,12 +72,9 @@ public class Librarian {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
     
-    // Quan hệ với Borrowing (các giao dịch mượn/trả được xử lý)
-    @OneToMany(mappedBy = "processedBy", fetch = FetchType.LAZY)
-    private List<Borrowing> processedBorrowings;
-    
     // Thông báo
     @OneToMany(mappedBy = "createdBy", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
     private List<Notification> notifications;
     
     @PrePersist

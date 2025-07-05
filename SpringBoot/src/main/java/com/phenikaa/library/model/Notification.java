@@ -1,5 +1,7 @@
 package com.phenikaa.library.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 
@@ -7,6 +9,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "notifications")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Notification {
     
     @Id
@@ -38,6 +41,7 @@ public class Notification {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
+    @JsonBackReference
     private Librarian createdBy;
     
     @Column(name = "related_entity_id")

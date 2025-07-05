@@ -12,8 +12,8 @@ import { apiRequest } from "@/lib/queryClient";
 import BookModal from "@/components/modals/book-modal";
 import { getCategoryColor, getCategoryText, getStatusColor, getStatusText } from "@/lib/utils";
 import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
-import type { Book } from "@shared/schema";
-import { API_BASE } from "@/config/api";
+import { Book } from "../types";
+import { apiService } from "../services/api";
 
 // Map backend fields to frontend camelCase
 function mapBookApi(book: any): Book {
@@ -31,30 +31,22 @@ export default function Books() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const { toast } = useToast();
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
 
   const { data, error, isLoading } = useQuery({
-    queryKey: ['books', { category: selectedCategory, search: searchQuery }],
-    queryFn: () =>
-      fetch(`${API_BASE}/api/books${selectedCategory || searchQuery ? `/search?category=${selectedCategory}&title=${encodeURIComponent(searchQuery)}` : ''}`)
-        .then(r => {
-          if (!r.ok) throw new Error('Failed to load books');
-          return r.json();
-        })
-        .catch(console.error)
+    queryKey: ['books', { category: selectedCategory, search: searchQuery, page }],
+    queryFn: () => apiService.getBooks(searchQuery, selectedCategory || undefined, page, pageSize),
+    keepPreviousData: true,
   });
 
   const addBookMutation = useMutation({
-    mutationFn: async (book: Partial<Book>) => {
-      return fetch(`${API_BASE}/api/books`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(book),
-      })
-        .then(res => res.json())
-        .catch(console.error);
-    },
+    mutationFn: (book: Partial<Book>) => apiService.createBook(book as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["books"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-activities"] });
+      localStorage.setItem('dashboardNeedsRefresh', '1');
       setIsModalOpen(false);
       toast({ title: "Success", description: "Book added successfully" });
     },
@@ -64,17 +56,12 @@ export default function Books() {
   });
 
   const editBookMutation = useMutation({
-    mutationFn: async (book: Book) => {
-      return fetch(`${API_BASE}/api/books/${book.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(book),
-      })
-        .then(res => res.json())
-        .catch(console.error);
-    },
+    mutationFn: (book: Book) => apiService.updateBook(book.id, book),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["books"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-activities"] });
+      localStorage.setItem('dashboardNeedsRefresh', '1');
       setIsModalOpen(false);
       toast({ title: "Success", description: "Book updated successfully" });
     },
@@ -84,13 +71,12 @@ export default function Books() {
   });
 
   const deleteBookMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return fetch(`${API_BASE}/api/books/${id}`, { method: "DELETE" })
-        .then(res => res.json())
-        .catch(console.error);
-    },
+    mutationFn: (id: number) => apiService.deleteBook(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["books"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-activities"] });
+      localStorage.setItem('dashboardNeedsRefresh', '1');
       toast({ title: "Success", description: "Book deleted successfully" });
     },
     onError: () => {
@@ -125,6 +111,8 @@ export default function Books() {
   // Always use an array for rendering, whether API returns array or Page object
   const booksArray = (Array.isArray(data) ? data : data?.content || []).map(mapBookApi);
   const safeBooksArray = Array.isArray(booksArray) ? booksArray : [];
+  const totalElements = data?.totalElements || safeBooksArray.length;
+  const totalPages = data?.totalPages || 1;
 
   if (isLoading) {
     return (
@@ -317,16 +305,14 @@ export default function Books() {
           {safeBooksArray.length > 0 && (
             <div className="p-6 border-t border-slate-200 flex items-center justify-between">
               <div className="text-sm text-slate-600">
-                Hiển thị {safeBooksArray.length} kết quả
+                Hiển thị {safeBooksArray.length} / {totalElements} kết quả
               </div>
               <div className="flex space-x-2">
-                <Button variant="outline" size="sm" disabled>
+                <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 0}>
                   Trước
                 </Button>
-                <Button size="sm" className="btn-primary">
-                  1
-                </Button>
-                <Button variant="outline" size="sm" disabled>
+                <span className="px-2">Trang {page + 1} / {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page + 1 >= totalPages}>
                   Tiếp
                 </Button>
               </div>

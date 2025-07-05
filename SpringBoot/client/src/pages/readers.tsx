@@ -11,8 +11,8 @@ import { apiRequest } from "@/lib/queryClient";
 import ReaderModal from "@/components/modals/reader-modal";
 import { getInitials, formatDate } from "@/lib/utils";
 import { UserPlus, Search, Edit, Trash2, Eye, Book } from "lucide-react";
-import type { Reader } from "@shared/schema";
-import { API_BASE } from "@/config/api";
+import { Reader } from "../types";
+import { apiService } from "../services/api";
 
 // Map backend fields to frontend camelCase
 function mapReaderApi(reader: any): Reader {
@@ -31,28 +31,22 @@ export default function Readers() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedReader, setSelectedReader] = useState<Reader | null>(null);
   const { toast } = useToast();
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
 
   const { data: readers, error, isLoading } = useQuery({
-    queryKey: ['readers'],
-    queryFn: () =>
-      fetch(`${API_BASE}/api/readers`).then(r => {
-        if (!r.ok) throw new Error('Failed to load readers');
-        return r.json();
-      }).catch(console.error)
+    queryKey: ['readers', { search: searchQuery, page }],
+    queryFn: () => apiService.getReaders(searchQuery, page, pageSize),
+    keepPreviousData: true,
   });
 
   const addReaderMutation = useMutation({
-    mutationFn: async (reader: Partial<Reader>) => {
-      return fetch(`${API_BASE}/api/readers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(reader),
-      })
-        .then(res => res.json())
-        .catch(console.error);
-    },
+    mutationFn: (reader: Partial<Reader>) => apiService.createReader(reader as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["readers"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-activities"] });
+      localStorage.setItem('dashboardNeedsRefresh', '1');
       setIsModalOpen(false);
       toast({ title: "Success", description: "Reader added successfully" });
     },
@@ -62,17 +56,12 @@ export default function Readers() {
   });
 
   const editReaderMutation = useMutation({
-    mutationFn: async (reader: Reader) => {
-      return fetch(`${API_BASE}/api/readers/${reader.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(reader),
-      })
-        .then(res => res.json())
-        .catch(console.error);
-    },
+    mutationFn: (reader: Reader) => apiService.updateReader(reader.id, reader),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["readers"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-activities"] });
+      localStorage.setItem('dashboardNeedsRefresh', '1');
       setIsModalOpen(false);
       toast({ title: "Success", description: "Reader updated successfully" });
     },
@@ -82,13 +71,12 @@ export default function Readers() {
   });
 
   const deleteReaderMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return fetch(`${API_BASE}/api/readers/${id}`, { method: "DELETE" })
-        .then(res => res.json())
-        .catch(console.error);
-    },
+    mutationFn: (id: number) => apiService.deleteReader(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["readers"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-activities"] });
+      localStorage.setItem('dashboardNeedsRefresh', '1');
       toast({ title: "Success", description: "Reader deleted successfully" });
     },
     onError: () => {
@@ -138,6 +126,8 @@ export default function Readers() {
   // Always use an array for rendering, whether API returns array or Page object
   const readersArray = (Array.isArray(readers) ? readers : readers?.content || []).map(mapReaderApi);
   const safeReadersArray = Array.isArray(readersArray) ? readersArray : [];
+  const totalElements = readers?.totalElements || safeReadersArray.length;
+  const totalPages = readers?.totalPages || 1;
 
   if (isLoading) {
     return (
@@ -272,6 +262,24 @@ export default function Readers() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {safeReadersArray.length > 0 && (
+        <div className="p-6 border-t border-slate-200 flex items-center justify-between">
+          <div className="text-sm text-slate-600">
+            Hiển thị {safeReadersArray.length} / {totalElements} kết quả
+          </div>
+          <div className="flex space-x-2">
+            <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 0}>
+              Trước
+            </Button>
+            <span className="px-2">Trang {page + 1} / {totalPages}</span>
+            <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page + 1 >= totalPages}>
+              Tiếp
+            </Button>
+          </div>
+        </div>
+      )}
 
       <ReaderModal
         isOpen={isModalOpen}
